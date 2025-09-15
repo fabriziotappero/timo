@@ -1,0 +1,16 @@
+*.log
+build/
+debug.html
+
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+go.work
+go.work.sum
+
+.env
+
+.vscode/
