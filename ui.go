@@ -22,6 +22,8 @@ var (
 	dotStyle      = helpStyle.UnsetMargins()
 	durationStyle = dotStyle
 	appStyle      = lipgloss.NewStyle().Margin(1, 2, 0, 2)
+	redStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	italicStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Italic(true)
 )
 
 type resultMsg struct {
@@ -29,6 +31,9 @@ type resultMsg struct {
 	some_text  string
 	isSpinning bool
 }
+
+// Custom message type for update check result
+type isNewVersionAvailable bool
 
 // func (r resultMsg) StringWithSpinner(spinner spinner.Model) string {
 // 	if r.isSpinning {
@@ -53,13 +58,14 @@ func (r resultMsg) String() string {
 }
 
 type model struct {
-	spinner   spinner.Model
-	results   []resultMsg
-	quitting  bool
-	loggedIn  bool
-	showLogin bool
-	loginData LoginData
-	loginStep int // 0: username, 1: password, 2: kimaiID
+	spinner               spinner.Model
+	results               []resultMsg
+	quitting              bool
+	loggedIn              bool
+	showLogin             bool
+	loginData             LoginData
+	loginStep             int  // 0: username, 1: password, 2: kimaiID
+	isNewVersionAvailable bool // true if a new version is available
 }
 
 func newModel() model {
@@ -68,20 +74,27 @@ func newModel() model {
 	s.Spinner = spinner.Dot
 	s.Style = spinnerStyle
 	return model{
-		spinner:   s,
-		results:   make([]resultMsg, numLastResults),
-		loggedIn:  false,
-		showLogin: false,
-		loginStep: 0,
+		spinner:               s,
+		results:               make([]resultMsg, numLastResults),
+		loggedIn:              false,
+		showLogin:             false,
+		loginStep:             0,
+		isNewVersionAvailable: false,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return m.spinner.Tick
+	return func() tea.Msg {
+		ok, _ := NewVersionAvailable()
+		return isNewVersionAvailable(ok)
+	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case isNewVersionAvailable:
+		m.isNewVersionAvailable = bool(msg)
+		return m, nil
 	case tea.KeyMsg:
 		// Handle login mode
 		if m.showLogin {
@@ -234,16 +247,22 @@ func (m model) View() string {
 		// }
 
 	} else {
-		s += "Please login.\n"
+
+		if m.isNewVersionAvailable {
+			s += "Please login. " + italicStyle.Render("New version available on github\n")
+		} else {
+			s += "Please login.\n"
+		}
+
 	}
 
 	//s += "\n"
 
 	if !m.quitting && !m.showLogin {
 		if m.loggedIn {
-			s += helpStyle.Render("f fetch • u upgrade • x logout • q quit")
+			s += helpStyle.Render("f fetch • x logout • q quit")
 		} else {
-			s += helpStyle.Render("l login • u upgrade • q quit")
+			s += helpStyle.Render("l login • q quit")
 		}
 	}
 

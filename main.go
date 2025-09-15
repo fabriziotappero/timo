@@ -9,6 +9,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var Version = "v0.3.0"
+
 func logInit() {
 
 	var debugMode bool
@@ -50,7 +52,18 @@ func logInit() {
 	slog.SetDefault(logger)
 }
 
+func checkVersionFlag() {
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" {
+			println(Version)
+			os.Exit(0)
+		}
+	}
+}
+
 func main() {
+
+	checkVersionFlag()
 
 	// to get debug info use: go run . --debug
 	logInit()
