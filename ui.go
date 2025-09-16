@@ -249,7 +249,7 @@ func (m model) View() string {
 	} else {
 
 		if m.isNewVersionAvailable {
-			s += "Please login. " + italicStyle.Render("New version available on github\n")
+			s += "Please login. " + italicStyle.Render("\t\t\t🚀 Update from Github!\n")
 		} else {
 			s += "Please login.\n"
 		}
