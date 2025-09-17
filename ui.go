@@ -66,6 +66,7 @@ type model struct {
 	loginData             LoginData
 	loginStep             int  // 0: username, 1: password, 2: kimaiID
 	isNewVersionAvailable bool // true if a new version is available
+	isFetching            bool // true if currently fetching data
 }
 
 func newModel() model {
@@ -146,22 +147,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle main menu
 		switch msg.String() {
+
 		case "f":
 			if m.loggedIn && len(m.loginData.TimenetPassword) > 0 {
+
+				m.isFetching = true
+
 				// First show a spinning message
 				m.results = append(m.results[1:], resultMsg{
 					some_text:  "Fetching Timenet data...",
 					isSpinning: true,
 				})
 
-				// Run fetchTimenet in a command
-				return m, func() tea.Msg {
-					err := fetchTimenet(m.loginData.TimenetPassword)
+				// Run fetchTimenet in a goroutine and send resultMsg to the UI
+				go func(password string) {
+					err := fetchTimenet(password)
+					var msg resultMsg
 					if err != nil {
-						return resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false}
+						msg = resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false}
+					} else {
+						msg = resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false}
 					}
-					return resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false}
-				}
+					tea.Println(msg.String()) // Optionally print to terminal
+
+					// If you have access to the Bubble Tea program instance, use p.Send(msg)
+				}(m.loginData.TimenetPassword)
+
+				//return m, nil
+				return m, m.spinner.Tick // keep spinner running while fetching
+
 			} else if m.loggedIn {
 				// User is logged in but no Timenet password
 				return m, func() tea.Msg {
@@ -170,18 +184,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// User not logged in - do nothing or could show a message
 			return m, nil
+
 		case "l":
 			if !m.loggedIn {
 				m.showLogin = true
 				m.loginStep = 0
 			}
 			return m, nil
+
 		case "x":
 			if m.loggedIn {
-				m.loggedIn = false
-				m.loginData = LoginData{}
+				m.loggedIn = false        // logout
+				m.loginData = LoginData{} // Clear passwords
 			}
 			return m, nil
+
 		case "q", "esc", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
@@ -191,6 +208,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case resultMsg:
 		m.results = append(m.results[1:], msg)
+		m.isFetching = false
 		return m, nil
 
 	case spinner.TickMsg:
@@ -234,13 +252,15 @@ func (m model) View() string {
 
 		// this is the main logged-in area
 
+		// TODO I am not completely sure when to run ShowTimenetTable()
+
 		// load local json data and show it
-		tableStr, err := ShowTimenetTable()
-		if err != nil {
-			s += "Failed to load Timenet data.\n"
-		} else {
-			s += tableStr
-		}
+		// tableStr, err := ShowTimenetTable()
+		// if err != nil {
+		// 	s += "Failed to load Timenet data.\n"
+		// } else {
+		// 	s += tableStr
+		// }
 
 		// for _, res := range m.results {
 		// 	s += res.StringWithSpinner(m.spinner) + "\n" // this is incorrect
@@ -260,7 +280,14 @@ func (m model) View() string {
 
 	if !m.quitting && !m.showLogin {
 		if m.loggedIn {
-			s += helpStyle.Render("f fetch • x logout • q quit")
+
+			if m.isFetching {
+				s += helpStyle.Render(fmt.Sprintf("%s fetch • x logout • q quit", m.spinner.View()))
+			} else {
+				s += helpStyle.Render("f fetch • x logout • q quit")
+			}
+			//s += helpStyle.Render("f fetch • x logout • q quit")
+
 		} else {
 			s += helpStyle.Render("l login • q quit")
 		}

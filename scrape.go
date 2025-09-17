@@ -10,14 +10,36 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+var chromiumPath string = ""
+
+// find any Chromium/Chrome in the OS PATH, search as well in the user ~/.config dir
+// if nothing is found, download and install a local copy of Chromium in
+func setupScraper() {
+	if !IsChromiumAvailable() {
+		chromiumPath, _ = GetCustomChromiumToPath()
+		if chromiumPath == "" {
+			DownloadChromium()
+			InstallCustomChromium()
+		}
+	}
+}
+
 // scrapeTimenet automates login to Timenet
 func scrapeTimenet(password string) (string, error) {
+
+	// TODO still to be tested when Chromium is not present in PATH
+	//setupScraper()
+
 	// Create context with headless browser
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", true), // Set to true for headless mode
+		chromedp.ExecPath(chromiumPath), // if chromiumPath is empty, it uses any Chromium found in PATH
+		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("no-sandbox", true),
 	)
+
+	slog.Info("Using Chrome/Chromium executable:", "path", chromiumPath)
+
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancel()
 
@@ -112,6 +134,6 @@ func scrapeTimenet(password string) (string, error) {
 	}
 
 	// Return the response HTML
-	slog.Info("Timenet login successful, response received")
+	slog.Info("Timenet scrape successful")
 	return responseHTML, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"debug/buildinfo"
 	"errors"
 	"fmt"
@@ -8,7 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -120,4 +124,144 @@ func NewVersionAvailable() (bool, error) {
 	}
 	slog.Info("No new version available from remote")
 	return false, nil
+}
+
+// checks if 'chrome' or 'chromium' is available in PATH
+func IsChromiumAvailable() bool {
+	candidates := []string{"chrome", "chromium", "chrome.exe", "chromium.exe", "google-chrome", "google-chrome-stable"}
+	for _, name := range candidates {
+		if path, err := exec.LookPath(name); err == nil {
+			slog.Info("Found Chrome/Chromium browser executable", "path", path)
+			return false
+		}
+	}
+	slog.Warn("No Chrome/Chromium browser found in PATH")
+	return false
+}
+
+// downloads a portable Chromium ZIP to the OS temp folder (Windows/Linux)
+// get version 787553 from 2020 (older but small)
+func DownloadChromium() error {
+	var url string
+	if runtime.GOOS == "windows" {
+		url = "https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Win%2F787553%2Fchrome-win.zip?generation=1594518380823178&alt=media"
+	} else if runtime.GOOS == "linux" {
+		url = "https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2F785537%2Fchrome-linux.zip?generation=1594074384864843&alt=media"
+	} else {
+		slog.Error("Automatic Chromium download not supported on this OS")
+		return fmt.Errorf("unsupported OS")
+	}
+
+	tempDir := os.TempDir()
+	zipPath := filepath.Join(tempDir, "chromium.zip")
+
+	out, err := os.Create(zipPath)
+	if err != nil {
+		slog.Error("Failed to create zip file", "error", err)
+		return err
+	}
+	defer out.Close()
+
+	slog.Info("Downloading Chromium...", "url", url)
+	fmt.Println("Downloading Chromium...")
+	resp, err := http.Get(url)
+	if err != nil {
+		slog.Error("Failed to download Chromium", "error", err)
+		return err
+	}
+	defer resp.Body.Close()
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		slog.Error("Failed to save Chromium zip", "error", err)
+		return err
+	}
+	slog.Info("Chromium ZIP downloaded", "path", zipPath)
+	return nil
+}
+
+// unzip extracts a zip archive to a destination directory
+func unzip(src, dest string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	os.MkdirAll(dest, 0755)
+	for _, f := range r.File {
+		fpath := filepath.Join(dest, f.Name)
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, f.Mode())
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+			return err
+		}
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// extracts Chromium.zip from the OS temp folder to the user config directory ~/.config
+func InstallCustomChromium() error {
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		slog.Error("No config dir", "err", err)
+		return err
+	}
+	chromiumDir := filepath.Join(configDir, "timo", "chromium")
+	os.MkdirAll(chromiumDir, 0755)
+
+	zipPath := filepath.Join(os.TempDir(), "chromium.zip")
+	if _, err := os.Stat(zipPath); err != nil {
+		slog.Error("chromium.zip not found in OS temp folder", "err", err)
+		return err
+	}
+	if err = unzip(zipPath, chromiumDir); err != nil {
+		slog.Error("Unzip fail", "err", err)
+		return err
+	}
+	slog.Info("Chromium extracted", "dir", chromiumDir)
+
+	return nil
+}
+
+// finds a possible custom Chromium executable and returns its path for chromedp usage
+func GetCustomChromiumToPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		slog.Error("No config dir", "err", err)
+		return "", err
+	}
+	chromiumDir := filepath.Join(configDir, "timo", "chromium")
+	var chromiumExe string
+	switch runtime.GOOS {
+	case "windows":
+		chromiumExe = filepath.Join(chromiumDir, "chrome-win", "chrome.exe")
+	case "linux":
+		chromiumExe = filepath.Join(chromiumDir, "chrome-linux", "chrome")
+	default:
+		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+	if _, err := os.Stat(chromiumExe); os.IsNotExist(err) {
+		slog.Info("Chromium/Chrome executable not found at " + chromiumExe)
+		return "", fmt.Errorf("chromium executable not found at %s", chromiumExe)
+	}
+	slog.Info("Chromium/Chrome is now available.", "path", chromiumExe)
+
+	return chromiumExe, nil
 }

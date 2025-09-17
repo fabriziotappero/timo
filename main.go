@@ -50,19 +50,14 @@ func logInit() {
 	slog.SetDefault(logger)
 }
 
-// func checkVersionFlag() {
-// 	for _, arg := range os.Args[1:] {
-// 		if arg == "--version" {
-// 			println(Version)
-// 			os.Exit(0)
-// 		}
-// 	}
-// }
-
 func main() {
 
-	// to get debug info use: go run . --debug
+	// to get debug info use:  go run . --debug
+	// track logged data with: tail -f /tmp/timo_debug.log
 	logInit()
+
+	// make sure Chromium is available for scraping
+	setupScraper()
 
 	model := newModel()
 	p := tea.NewProgram(model)
@@ -77,7 +72,7 @@ func main() {
 
 	// start UI
 	if _, err := p.Run(); err != nil {
-		slog.Error("Error running program:", err)
+		slog.Error("Error running UI:", err)
 		os.Exit(1)
 	}
 }
@@ -92,11 +87,23 @@ func task2() string {
 }
 
 func fetchTimenet(password string) error {
+
+	// SCRAPING
 	slog.Info("Starting Timenet scraping")
-	// _html, err := scrapeTimenet(password)
-	// if err != nil {
-	// 	slog.Error("Failed to scrape Timenet", "error", err)
-	// 	return err
-	// }
+	_html, err := scrapeTimenet(password)
+	if err != nil {
+		slog.Error("Failed to scrape Timenet", "error", err)
+		return err
+	}
+	slog.Info("Timenet HTML data fetched", "length", len(_html))
+
+	// PARSING AND SAVING
+	slog.Info("Starting Timenet data parsing")
+	err = timenetParse(&_html)
+	if err != nil {
+		slog.Error("Failed to parse Timenet data", "error", err)
+		return err
+	}
+
 	return nil
 }
