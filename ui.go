@@ -51,7 +51,7 @@ func (r resultMsg) String() string {
 		return fmt.Sprintf("⟳ %s", r.some_text)
 	}
 	if r.some_num == 0 {
-		return fmt.Sprintf("• %s", r.some_text)
+		return fmt.Sprintf("%s", r.some_text)
 	}
 	return fmt.Sprintf("🍔 Eating %s %s", r.some_text,
 		durationStyle.Render(r.some_num.String()))
@@ -251,6 +251,12 @@ func (m model) View() string {
 	} else if m.loggedIn {
 
 		// this is the main logged-in area
+
+		// Show the latest resultMsg.some_text if available
+		if len(m.results) > 0 {
+			last := m.results[len(m.results)-1]
+			s += last.String() + "\n"
+		}
 
 		// TODO I am not completely sure when to run ShowTimenetTable()
 

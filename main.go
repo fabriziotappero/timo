@@ -65,8 +65,11 @@ func main() {
 	// this process will run in background and send messages to the UI
 	go func() {
 		for {
-			time.Sleep(500)
+			time.Sleep(3000 * time.Millisecond)
 			//p.Send(resultMsg{some_text: task1(), some_num: 23})
+
+			// Load local JOSON file and generate Timenet table
+			p.Send(resultMsg{some_text: BuildTimenetTable(), some_num: 0})
 		}
 	}()
 
