@@ -12,12 +12,14 @@ func main() {
 
 	// to get debug info use:  go run . --debug
 	// track logged data with: tail -f /tmp/timo_debug.log
+	debugMode := false
 	for _, arg := range os.Args[1:] {
 		if arg == "--debug" {
-			logInit()
+			debugMode = true
 			break
 		}
 	}
+	logInit(debugMode)
 
 	// make sure Chromium is available for scraping
 	setupScraper()

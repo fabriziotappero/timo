@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 )
 
-func logInit() {
-	var debugMode bool = true
+// since the UI is using stdout/stderr for display, we cannot log there
+// so we create a log file in the OS temp folder
+func logInit(debugMode bool) {
 	var logger *slog.Logger
 	if debugMode {
 		// Create log file in OS temp folder

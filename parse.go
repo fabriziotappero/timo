@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -244,48 +243,4 @@ func cleanHTML(html *string) {
 
 	// Format the cleaned HTML
 	*html = gohtml.Format(*html)
-}
-
-// readLatestTimenetJSON finds and reads the most recent timenet JSON file
-func readLatestTimenetJSON() (*TimenetData, error) {
-	tempDir := os.TempDir()
-	//tempDir = "" // DEBUG - using current directory
-
-	// Find all timenet JSON files
-	pattern := filepath.Join(tempDir, "timenet_data_*.json")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search for JSON files: %v", err)
-	}
-
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("no timenet JSON files found in %s", tempDir)
-	}
-
-	// Sort files by modification time (newest first)
-	sort.Slice(matches, func(i, j int) bool {
-		infoI, errI := os.Stat(matches[i])
-		infoJ, errJ := os.Stat(matches[j])
-		if errI != nil || errJ != nil {
-			return false
-		}
-		return infoI.ModTime().After(infoJ.ModTime())
-	})
-
-	latestFile := matches[0]
-	slog.Debug("Reading latest JSON file: " + latestFile)
-
-	// Read and parse the JSON file
-	jsonData, err := os.ReadFile(latestFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %v", latestFile, err)
-	}
-
-	var data TimenetData
-	err = json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON from %s: %v", latestFile, err)
-	}
-
-	return &data, nil
 }
