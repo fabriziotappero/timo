@@ -21,7 +21,7 @@ func main() {
 	}
 	logInit(debugMode)
 
-	// make sure Chromium is available for scraping
+	// download Chromium if not available
 	setupScraper()
 
 	model := newModel()

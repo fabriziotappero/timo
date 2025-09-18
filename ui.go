@@ -27,34 +27,23 @@ var (
 )
 
 type resultMsg struct {
-	some_num   time.Duration
-	some_text  string
-	isSpinning bool
+	some_num         time.Duration
+	some_text        string
+	isSpinning       bool
+	isFetchCompleted bool
 }
 
 // Custom message type for update check result
 type isNewVersionAvailable bool
-
-// func (r resultMsg) StringWithSpinner(spinner spinner.Model) string {
-// 	if r.isSpinning {
-// 		return fmt.Sprintf("%s %s", spinner.View(), r.some_text)
-// 	}
-// 	if r.some_num == 0 {
-// 		return fmt.Sprintf("• %s", r.some_text)
-// 	}
-// 	return fmt.Sprintf("🍔 Ate %s %s", r.some_text,
-// 		durationStyle.Render(r.some_num.String()))
-// }
 
 func (r resultMsg) String() string {
 	if r.isSpinning {
 		return fmt.Sprintf("⟳ %s", r.some_text)
 	}
 	if r.some_num == 0 {
-		return fmt.Sprintf("%s", r.some_text)
+		return fmt.Sprintf(" %s", r.some_text)
 	}
-	return fmt.Sprintf("🍔 Eating %s %s", r.some_text,
-		durationStyle.Render(r.some_num.String()))
+	return fmt.Sprintf("🍔 Some test %s %s", r.some_text, durationStyle.Render(r.some_num.String()))
 }
 
 type model struct {
@@ -159,23 +148,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					isSpinning: true,
 				})
 
-				// Run fetchTimenet in a goroutine and send resultMsg to the UI
-				go func(password string) {
-					err := fetchTimenet(password)
-
-					var msg resultMsg
-					if err != nil {
-						msg = resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false}
-					} else {
-						msg = resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false}
-					}
-					tea.Println(msg.String()) // Optionally print to terminal
-
-					// If you have access to the Bubble Tea program instance, use p.Send(msg)
-				}(m.loginData.TimenetPassword)
-
-				//return m, nil
-				return m, m.spinner.Tick // keep spinner running while fetching
+				// Use a tea.Cmd to perform fetchTimenet asynchronously and send resultMsg to Update
+				return m, tea.Batch(
+					m.spinner.Tick,
+					func() tea.Msg {
+						err := fetchTimenet(m.loginData.TimenetPassword)
+						if err != nil {
+							return resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true}
+						}
+						return resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true}
+					},
+				)
 
 			} else if m.loggedIn {
 				// User is logged in but no Timenet password
@@ -209,13 +192,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case resultMsg:
 		m.results = append(m.results[1:], msg)
-		m.isFetching = false
+
+		if msg.isFetchCompleted {
+			m.isFetching = false
+		}
+		if m.isFetching {
+			return m, m.spinner.Tick
+		}
+
 		return m, nil
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		if m.isFetching {
+			return m, cmd
+		}
+		return m, nil
 
 	default:
 		return m, nil
@@ -258,20 +251,6 @@ func (m model) View() string {
 			last := m.results[len(m.results)-1]
 			s += last.String() + "\n"
 		}
-
-		// TODO I am not completely sure when to run ShowTimenetTable()
-
-		// load local json data and show it
-		// tableStr, err := ShowTimenetTable()
-		// if err != nil {
-		// 	s += "Failed to load Timenet data.\n"
-		// } else {
-		// 	s += tableStr
-		// }
-
-		// for _, res := range m.results {
-		// 	s += res.StringWithSpinner(m.spinner) + "\n" // this is incorrect
-		// }
 
 	} else {
 
