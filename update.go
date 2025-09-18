@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-// parseVersion parses a version string like "v1.2.3" and returns major, minor, patch.
+// parses a version string like "v1.2.3" and returns major, minor, patch.
 func parseVersion(ver string) (int, int, int, error) {
 	ver = strings.TrimSpace(ver)
 	ver = strings.TrimPrefix(ver, "v")
@@ -64,7 +64,7 @@ func ReadLocalVersion() (int, int, int, error) {
 	return 0, 0, 0, errors.New("version not found in binary file")
 }
 
-// ReadRemoteVersion fetches the version number from the VERSION variable in
+// fetches the software version from the VERSION variable in
 // the remote build.sh file in the GitHub repository.
 func ReadRemoteVersion() (int, int, int, error) {
 	url := "https://raw.githubusercontent.com/fabriziotappero/timo/main/build.sh"
@@ -97,7 +97,8 @@ func ReadRemoteVersion() (int, int, int, error) {
 	return parseVersion(version)
 }
 
-// NewVersionAvailable returns true if the remote version is newer than the local version.
+// returns true if the remote version in github is newer than the local version.
+// local version is extracted from the binary file using buildinfo method
 func NewVersionAvailable() (bool, error) {
 	localMajor, localMinor, localPatch, err := ReadLocalVersion()
 	if err != nil {
@@ -215,7 +216,8 @@ func unzip(src, dest string) error {
 	return nil
 }
 
-// extracts Chromium.zip from the OS temp folder to the user config directory ~/.config
+// extracts Chromium.zip from the OS temp folder to the user config directory
+// which in Linux is  ~/.config and in Windows is C:\Users\yourname\AppData\Roaming
 func InstallCustomChromium() error {
 
 	configDir, err := os.UserConfigDir()
@@ -241,6 +243,7 @@ func InstallCustomChromium() error {
 }
 
 // finds a possible custom Chromium executable and returns its path for chromedp usage
+// it searches in the user config directory ~/.config (Linux) or C:\Users\yourname\AppData\Roaming (Windows)
 func GetCustomChromiumToPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
