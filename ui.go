@@ -162,6 +162,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Run fetchTimenet in a goroutine and send resultMsg to the UI
 				go func(password string) {
 					err := fetchTimenet(password)
+
 					var msg resultMsg
 					if err != nil {
 						msg = resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false}
