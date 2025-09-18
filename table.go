@@ -56,13 +56,13 @@ func BuildSummaryTable() string {
 	}
 
 	var result strings.Builder
-	result.WriteString("================= Summary =================\n")
+	result.WriteString("========= Last Available Summary =========\n")
 	result.WriteString(fmt.Sprintf(" Last Update:           %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
 	result.WriteString(fmt.Sprintf(" Reporting Month:       %s\n", timenet_data.Summary.MesAno))
 	result.WriteString(fmt.Sprintf(" Required Hours:        %s\n", timenet_data.Summary.HorasPrevistas))
-	result.WriteString(fmt.Sprintf(" Timenet Clocked Hours: %s\n", timenet_data.Summary.HorasTrabajadas))
-	result.WriteString(fmt.Sprintf(" Kimai Clocked Hours:   %s\n", kimai_data.Summary.WorkedHours))
+	result.WriteString(fmt.Sprintf(" Timenet Clocked Time:  %s\n", timenet_data.Summary.HorasTrabajadas))
+	result.WriteString(fmt.Sprintf(" Kimai Clocked Time:    %s\n", kimai_data.Summary.WorkedHours))
 	result.WriteString(fmt.Sprintf(" Total Overtime:        %s\n", timenet_data.Summary.AcumuladoAno))
-	result.WriteString("===========================================")
+	result.WriteString("==========================================")
 	return result.String()
 }

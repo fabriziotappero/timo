@@ -17,13 +17,11 @@ type LoginData struct {
 }
 
 var (
-	spinnerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	helpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Margin(1, 0)
-	dotStyle      = helpStyle.UnsetMargins()
-	durationStyle = dotStyle
-	appStyle      = lipgloss.NewStyle().Margin(1, 2, 0, 2)
-	redStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	italicStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Italic(true)
+	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	helpStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Margin(1, 0)
+	appStyle     = lipgloss.NewStyle().Margin(1, 2, 0, 2)
+	redStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	italicStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Italic(true)
 )
 
 type resultMsg struct {
@@ -33,35 +31,37 @@ type resultMsg struct {
 	isFetchCompleted bool
 }
 
-// Custom message type for update check result
 type isNewVersionAvailable bool
 
 func (r resultMsg) String() string {
 	if r.isSpinning {
-		return fmt.Sprintf("⟳ %s", r.some_text)
+		return fmt.Sprintf("%s", r.some_text)
 	}
 	if r.some_num == 0 {
-		return fmt.Sprintf(" %s", r.some_text)
+		return fmt.Sprintf("%s", r.some_text)
 	}
-	return fmt.Sprintf("🍔 Some test %s %s", r.some_text, durationStyle.Render(r.some_num.String()))
+	//return fmt.Sprintf("%s %s", r.some_text, durationStyle.Render(r.some_num.String()))
+	return fmt.Sprintf("%s", r.some_text)
 }
 
 type model struct {
-	spinner               spinner.Model
-	results               []resultMsg
-	quitting              bool
-	loggedIn              bool
-	showLogin             bool
-	loginData             LoginData
-	loginStep             int  // 0: username, 1: password, 2: kimaiID
-	isNewVersionAvailable bool // true if a new version is available
-	isFetching            bool // true if currently fetching data
+	spinner                 spinner.Model
+	results                 []resultMsg
+	quitting                bool
+	loggedIn                bool
+	showLogin               bool
+	loginData               LoginData
+	loginStep               int  // 0: username, 1: password, 2: kimaiID
+	isNewVersionAvailable   bool // true if a new version is available
+	isFetching              bool // true if currently fetching data
+	isKimaiFetchCompleted   bool // true if Kimai fetch is done
+	isTimenetFetchCompleted bool // true if Timenet fetch is done
 }
 
 func newModel() model {
 	const numLastResults = 4
 	s := spinner.New()
-	s.Spinner = spinner.Dot
+	s.Spinner = spinner.MiniDot
 	s.Style = spinnerStyle
 	return model{
 		spinner:               s,
@@ -138,13 +138,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 
 		case "f":
-			if m.loggedIn && len(m.loginData.TimenetPassword) > 0 {
+			if m.loggedIn && (len(m.loginData.TimenetPassword) > 0 || len(m.loginData.KimaiPassword) > 0) {
 
 				m.isFetching = true
+				m.isKimaiFetchCompleted = false
+				m.isTimenetFetchCompleted = false
 
 				// First show a spinning message
 				m.results = append(m.results[1:], resultMsg{
-					some_text:  "Fetching Timenet data...",
+					some_text:  "Fetching remote data...",
 					isSpinning: true,
 				})
 
@@ -154,23 +156,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					func() tea.Msg {
 						err := fetchTimenet(m.loginData.TimenetPassword)
 						if err != nil {
-							return resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true}
+							return resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true /* custom flag */}
 						}
-						return resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true}
+						return resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true /* custom flag */}
 					},
 					func() tea.Msg {
 						err := fetchKimai(m.loginData.KimayID, m.loginData.KimaiPassword)
 						if err != nil {
-							return resultMsg{some_text: "Kimai data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true}
+							return resultMsg{some_text: "Kimai data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true /* custom flag */}
 						}
-						return resultMsg{some_text: "Kimai fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true}
+						return resultMsg{some_text: "Kimai fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true /* custom flag */}
 					},
 				)
 
 			} else if m.loggedIn {
 				// User is logged in but no Timenet password
 				return m, func() tea.Msg {
-					return resultMsg{some_text: "No Timenet password provided", some_num: 0, isSpinning: false}
+					return resultMsg{some_text: "No password provided", some_num: 10e9, isSpinning: false}
 				}
 			}
 			// User not logged in - do nothing or could show a message
@@ -200,13 +202,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case resultMsg:
 		m.results = append(m.results[1:], msg)
 
+		// Determine which fetch completed
 		if msg.isFetchCompleted {
-			m.isFetching = false
+			if strings.Contains(msg.some_text, "Timenet") {
+				m.isTimenetFetchCompleted = true
+			}
+			if strings.Contains(msg.some_text, "Kimai") {
+				m.isKimaiFetchCompleted = true
+			}
+			if m.isTimenetFetchCompleted && m.isKimaiFetchCompleted {
+				m.isFetching = false
+			}
 		}
 		if m.isFetching {
 			return m, m.spinner.Tick
 		}
-
 		return m, nil
 
 	case spinner.TickMsg:
@@ -230,7 +240,7 @@ func (m model) View() string {
 	} else if m.showLogin {
 
 		// Login window
-		prompts := []string{"Timenet Password:", "Kimai ID:", "Kimai Password:"}
+		prompts := []string{"Timenet Password:", "Kimai Id:", "Kimai Password:"}
 		values := []string{
 			strings.Repeat("*", len(m.loginData.TimenetPassword)),
 			m.loginData.KimayID,
@@ -262,7 +272,7 @@ func (m model) View() string {
 	} else {
 
 		if m.isNewVersionAvailable {
-			s += "Please login. " + italicStyle.Render("\t\t\t🚀 Update from Github!\n")
+			s += "Please login. " + italicStyle.Render("\t\t\t🚀 Update available from Github!\n")
 		} else {
 			s += "Please login.\n"
 		}
@@ -275,11 +285,10 @@ func (m model) View() string {
 		if m.loggedIn {
 
 			if m.isFetching {
-				s += helpStyle.Render(fmt.Sprintf("%s fetch • x logout • q quit", m.spinner.View()))
+				s += helpStyle.Render(fmt.Sprintf("%s fetch • ← prev • → next • x logout • q quit", m.spinner.View()))
 			} else {
-				s += helpStyle.Render("f fetch • x logout • q quit")
+				s += helpStyle.Render("f fetch • ← prev • → next • x logout • q quit")
 			}
-			//s += helpStyle.Render("f fetch • x logout • q quit")
 
 		} else {
 			s += helpStyle.Render("l login • q quit")

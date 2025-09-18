@@ -69,7 +69,7 @@ func timenetParse(htmlContent *string) error {
 	}
 
 	data := TimenetData{
-		Date: time.Now().Format("2006-01-02"),
+		Date: time.Now().Format("2006/01/02"),
 		Time: time.Now().Format("15:04"),
 	}
 
@@ -272,7 +272,7 @@ func kimaiParse(htmlContent *string) error {
 	}
 
 	data := KimaiData{
-		PresentDate: time.Now().Format("2006-01-02"),
+		PresentDate: time.Now().Format("2006/01/02"),
 		PresentTime: time.Now().Format("15:04"),
 	}
 
