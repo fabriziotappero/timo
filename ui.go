@@ -148,7 +148,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					isSpinning: true,
 				})
 
-				// Use a tea.Cmd to perform fetchTimenet asynchronously and send resultMsg to Update
+				// Using tea.Batch I run fetchTimenet and fetchKimai concurrently and send resultMsg to Update function
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
@@ -157,6 +157,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							return resultMsg{some_text: "Timenet data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true}
 						}
 						return resultMsg{some_text: "Timenet fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true}
+					},
+					func() tea.Msg {
+						err := fetchKimai(m.loginData.KimayID, m.loginData.KimaiPassword)
+						if err != nil {
+							return resultMsg{some_text: "Kimai data fetch has failed: " + err.Error(), some_num: 0, isSpinning: false, isFetchCompleted: true}
+						}
+						return resultMsg{some_text: "Kimai fetch completed successfully.", some_num: 0, isSpinning: false, isFetchCompleted: true}
 					},
 				)
 

@@ -1,6 +1,6 @@
 *.log
 build/
-debug.html
+dump.html
 
 *.exe
 *.exe~

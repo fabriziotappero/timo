@@ -24,11 +24,7 @@ func setupScraper() {
 	}
 }
 
-// scrapeTimenet automates login to Timenet
 func scrapeTimenet(password string) (string, error) {
-
-	// TODO still to be tested when Chromium is not present in PATH
-	//setupScraper()
 
 	// Create context with headless browser
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
@@ -135,5 +131,53 @@ func scrapeTimenet(password string) (string, error) {
 
 	// Return the response HTML
 	slog.Info("Timenet scrape successful")
+	return responseHTML, nil
+}
+
+func scrapeKimai(id string, password string) (string, error) {
+
+	// Create context with headless browser
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.ExecPath(chromiumPath), // if chromiumPath is empty, it uses any Chromium found in PATH
+		chromedp.Flag("headless", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("ignore-certificate-errors", true),
+	)
+
+	slog.Info("Using Chrome/Chromium executable:", "path", chromiumPath)
+
+	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	ctx, cancel = chromedp.NewContext(ctx)
+	defer cancel()
+
+	// Set timeout
+	ctx, cancel = context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+
+	var responseHTML string
+
+	err := chromedp.Run(ctx,
+		chromedp.Navigate("https://kimai.itk-spain.com/index.php"),
+		chromedp.Sleep(3*time.Second),
+		chromedp.WaitVisible(`#kimaiusername`, chromedp.ByQuery),
+		chromedp.Clear(`#kimaiusername`, chromedp.ByQuery),
+		chromedp.SendKeys(`#kimaiusername`, id, chromedp.ByQuery),
+		chromedp.Clear(`#kimaipassword`, chromedp.ByQuery),
+		chromedp.SendKeys(`#kimaipassword`, password, chromedp.ByQuery),
+		chromedp.Sleep(2*time.Second),
+		chromedp.Click(`#loginButton`, chromedp.ByQuery),
+		chromedp.Sleep(3*time.Second),
+		chromedp.OuterHTML(`html`, &responseHTML, chromedp.ByQuery),
+	)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to scrape Kimai: %v", err)
+	}
+
+	// Return the response HTML
+	slog.Info("Kimai scrape successful")
 	return responseHTML, nil
 }

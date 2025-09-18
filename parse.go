@@ -1,4 +1,3 @@
-// parse.go
 package main
 
 import (
@@ -12,18 +11,42 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/yosssi/gohtml"
 )
 
-// TimenetData represents the parsed timenet data
-type TimenetData struct {
-	Date      string           `json:"current_date"`
-	Time      string           `json:"current_time"`
-	Summary   TimenetSummary   `json:"summary"`
-	DailyData []TimenetDayData `json:"daily_data"`
+// KIMAI DATA STRUCTURE
+type KimaiData struct {
+	PresentDate string           `json:"present_date"`
+	PresentTime string           `json:"present_time"`
+	Summary     KimaiSummary     `json:"summary"`
+	DailyData   []KimaiDailyData `json:"daily_data"`
 }
 
-// TimenetSummary represents the monthly summary
+type KimaiSummary struct {
+	ReportingDateFrom string `json:"reporting_date_from"`
+	ReportingDateTo   string `json:"reporting_date_to"`
+	WorkedHours       string `json:"worked_hours"`
+}
+
+type KimaiDailyData struct {
+	Date        int    `json:"date"`
+	In          string `json:"in"`
+	Out         string `json:"out"`
+	WorkedHours string `json:"worked_hours"`
+	Customer    string `json:"customer"`
+	Project     string `json:"project"`
+	Activity    string `json:"activity"`
+}
+
+// TIMENET DATA STRUCTURE
+type TimenetData struct {
+	Date      string             `json:"current_date"`
+	Time      string             `json:"current_time"`
+	Summary   TimenetSummary     `json:"summary"`
+	DailyData []TimenetDailyData `json:"daily_data"`
+}
+
 type TimenetSummary struct {
 	MesAno          string `json:"mes_ano"`
 	HorasPrevistas  string `json:"horas_previstas"`
@@ -31,8 +54,7 @@ type TimenetSummary struct {
 	AcumuladoAno    string `json:"acumulado_ano"`
 }
 
-// TimenetDayData represents data for each day
-type TimenetDayData struct {
+type TimenetDailyData struct {
 	Day        int    `json:"day"`
 	Previstas  string `json:"previstas"`
 	Trabajadas string `json:"trabajadas"`
@@ -48,7 +70,7 @@ func timenetParse(htmlContent *string) error {
 
 	data := TimenetData{
 		Date: time.Now().Format("2006-01-02"),
-		Time: time.Now().Format("15:04:05"),
+		Time: time.Now().Format("15:04"),
 	}
 
 	// Extract summary data
@@ -76,7 +98,7 @@ func timenetParse(htmlContent *string) error {
 	return nil
 }
 
-// extractSummary extracts the monthly summary from HTML
+// extracts the monthly summary from HTML
 func extractSummary(html string) (TimenetSummary, error) {
 	summary := TimenetSummary{}
 
@@ -112,8 +134,8 @@ func extractSummary(html string) (TimenetSummary, error) {
 }
 
 // extractDailyData extracts daily data for each day of the current month
-func extractDailyData(html string) ([]TimenetDayData, error) {
-	var dailyData []TimenetDayData
+func extractDailyData(html string) ([]TimenetDailyData, error) {
+	var dailyData []TimenetDailyData
 
 	// Split by container-line-checks to get individual day sections
 	parts := regexp.MustCompile(`<div class="container-line-checks`).Split(html, -1)
@@ -137,7 +159,7 @@ func extractDailyData(html string) ([]TimenetDayData, error) {
 			continue
 		}
 
-		dayData := TimenetDayData{
+		dayData := TimenetDailyData{
 			Day: dayNum,
 		}
 
@@ -193,15 +215,13 @@ func extractDailyData(html string) ([]TimenetDayData, error) {
 }
 
 // Save data to a JSON file in the OS temp folder
-func saveToJSON(data TimenetData, filename string) error {
+func saveToJSON(data any, filename string) error {
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err
 	}
 
 	tempDir := os.TempDir()
-	//tempDir = "" // DEBUG
-
 	fullPath := filepath.Join(tempDir, filename)
 
 	err = os.WriteFile(fullPath, jsonData, 0644)
@@ -243,4 +263,37 @@ func cleanHTML(html *string) {
 
 	// Format the cleaned HTML
 	*html = gohtml.Format(*html)
+}
+
+// extracts data from Kimai HTML and saves to JSON file
+func kimaiParse(htmlContent *string) error {
+	if htmlContent == nil {
+		return fmt.Errorf("HTML content is nil")
+	}
+
+	data := KimaiData{
+		PresentDate: time.Now().Format("2006-01-02"),
+		PresentTime: time.Now().Format("15:04"),
+	}
+
+	// NewDocumentFromReader takes a io.Reader not a string
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(*htmlContent))
+	if err != nil {
+		return err
+	}
+
+	// Extract summary data
+	data.Summary.ReportingDateFrom = doc.Find("#pick_in").AttrOr("value", "")
+	data.Summary.ReportingDateTo = doc.Find("#pick_out").AttrOr("value", "")
+	data.Summary.WorkedHours = doc.Find("#display_total").Text()
+
+	// Save to JSON file
+	filename := fmt.Sprintf("kimai_data_%s.json", time.Now().Format("2006-01-02"))
+	err = saveToJSON(data, filename)
+	if err != nil {
+		return fmt.Errorf("failed to save JSON: %v", err)
+	}
+
+	slog.Info("Kimai data saved to " + filename)
+	return nil
 }

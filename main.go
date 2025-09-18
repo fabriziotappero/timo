@@ -32,8 +32,8 @@ func main() {
 		for {
 			time.Sleep(3000 * time.Millisecond)
 
-			// LOAD LOCAL JOSON FILE AND GENERATE TIMENET TABLE
-			p.Send(resultMsg{some_text: BuildTimenetTable(), some_num: 0})
+			// LOAD LOCAL JOSON FILES AND GENERATE SUMMARY TABLE
+			p.Send(resultMsg{some_text: BuildSummaryTable(), some_num: 0})
 		}
 	}()
 
@@ -53,13 +53,36 @@ func fetchTimenet(password string) error {
 		slog.Error("Failed to scrape Timenet", "error", err)
 		return err
 	}
-	slog.Info("Timenet HTML data fetched", "length", len(_html))
 
 	// PARSE HTML AND SAVE IN LOCAL JSON
 	slog.Info("Starting Timenet data parsing")
 	err = timenetParse(&_html)
 	if err != nil {
 		slog.Error("Failed to parse Timenet data", "error", err)
+		return err
+	}
+
+	return nil
+}
+
+func fetchKimai(id string, password string) error {
+
+	// SCRAPING
+	slog.Info("Starting Kimai scraping")
+	_html, err := scrapeKimai(id, password)
+	if err != nil {
+		slog.Error("Failed to scrape Kimai", "error", err)
+		return err
+	}
+
+	// dump HTML to file for debugging
+	// os.WriteFile("dump.html", []byte(_html), 0644)
+
+	// PARSE HTML AND SAVE IN LOCAL JSON
+	slog.Info("Starting Kimai data parsing")
+	err = kimaiParse(&_html)
+	if err != nil {
+		slog.Error("Failed to parse Kimai data", "error", err)
 		return err
 	}
 
