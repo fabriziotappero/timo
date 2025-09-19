@@ -1,7 +1,7 @@
 
 Practical Golang utility to manage you logged hours using Timenet and Kimai.
 
-<div align="center"><img src="img/main.jpeg" alt="" width="380"></div>
+<div align="center"><img src="img/main.jpeg" alt="" width="400"></div>
 
 ## Timo Basic Principles
 - Terminal-style application usable as double-click Windows app too.
