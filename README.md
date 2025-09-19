@@ -16,7 +16,7 @@ Practical Golang utility to manage you logged hours using Timenet and Kimai.
 
 https://go.dev/doc/effective_go
 
-Run the app while developing:
+Run the app while developing: 
 
 ```
 go mod init timo
