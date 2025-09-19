@@ -1,56 +1,37 @@
 name: Build and Release
-
 on:
   push:
     tags:
       - 'new_release'
-    branches: [ main ]
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
+    
     - name: Make build.sh executable
       run: chmod +x build.sh
-
+      
     - name: Extract version from build.sh
       id: extract_version
       run: |
         VERSION=$(grep '^VERSION=' build.sh | cut -d'"' -f2)
+        echo "Extracted version: $VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-
+        
     - name: Run build.sh
       run: ./build.sh
-
+      
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: v${{ steps.extract_version.outputs.version }}
-        release_name: Release v${{ steps.extract_version.outputs.version }}
+        name: Release v${{ steps.extract_version.outputs.version }}
         draft: false
         prerelease: false
-
-    - name: Upload Linux binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/timo
-        asset_name: timo
-        asset_content_type: application/octet-stream
-
-    - name: Upload Windows binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/timo.exe
-        asset_name: timo.exe
-        asset_content_type: application/octet-stream
+        files: |
+          build/timo
+          build/timo.exe
