@@ -18,6 +18,7 @@ func setupScraper() {
 	if !IsChromiumAvailable() {
 		chromiumPath, _ = GetCustomChromiumToPath()
 		if chromiumPath == "" {
+			fmt.Println("Setting up some external tools...")
 			DownloadChromium()
 			InstallCustomChromium()
 		}

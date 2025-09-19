@@ -164,7 +164,6 @@ func DownloadChromium() error {
 	defer out.Close()
 
 	slog.Info("Downloading Chromium...", "url", url)
-	fmt.Println("Downloading Chromium...")
 	resp, err := http.Get(url)
 	if err != nil {
 		slog.Error("Failed to download Chromium", "error", err)
