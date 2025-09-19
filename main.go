@@ -54,6 +54,10 @@ func fetchTimenet(password string) error {
 		return err
 	}
 
+	// clean up HTML
+	cleanHTML(&_html)
+	os.WriteFile("dump.html", []byte(_html), 0644)
+
 	// PARSE HTML AND SAVE IN LOCAL JSON
 	slog.Info("Starting Timenet data parsing")
 	err = timenetParse(&_html)
