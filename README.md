@@ -9,7 +9,7 @@ Practical Golang utility to manage you logged hours using Timenet and Kimai.
 - Run Kimai and Timenet scraping in parallel in background.
 - All scraped data is stored locally in JSON files.
 - Simple and intuitive report generation from JSON files.
-- Can update itself.
+- Automatically check for new version comparing version from github main branch.
 
 
 ## Some Help With Golang
