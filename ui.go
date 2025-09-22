@@ -219,17 +219,15 @@ func (m model) View() string {
 		b.WriteString(helpStyle.Render("b back • esc leave"))
 
 	} else if m.loginSubmitted {
-		// Show main logged-in screen
 		if m.tableOutput != "" {
-			// Show the table output
+			// Show summary table output
 			b.WriteString(m.tableOutput)
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("c clear • esc leave • x logout • a about"))
+
 		} else {
-			// Show ready state
 			b.WriteString("ready\n")
-			b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
 		}
+		b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
 
 	} else {
 		// Show the input form
