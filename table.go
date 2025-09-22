@@ -57,7 +57,7 @@ func BuildSummaryTable() string {
 
 	var result strings.Builder
 	result.WriteString("========= Last Available Summary =========\n")
-	result.WriteString(fmt.Sprintf(" Last Update:           %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
+	//result.WriteString(fmt.Sprintf(" Last Update:           %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
 	result.WriteString(fmt.Sprintf(" Reporting Date:        %s\n", timenet_data.Summary.ReportingDate))
 	result.WriteString(fmt.Sprintf(" Required Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Timenet Clocked Time:  %s\n", timenet_data.Summary.WorkedHoursInMonth))
