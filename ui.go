@@ -28,13 +28,21 @@ type tableMsg struct {
 	output string
 }
 
+type fetchMsg struct {
+	success bool
+	message string
+}
+
 type model struct {
-	focusIndex     int
-	inputs         []textinput.Model
-	cursorMode     cursor.Mode
-	loginSubmitted bool
-	showAbout      bool
-	tableOutput    string
+	focusIndex      int
+	inputs          []textinput.Model
+	cursorMode      cursor.Mode
+	loginSubmitted  bool
+	showAbout       bool
+	tableOutput     string
+	timenetPassword string
+	kimaiID         string
+	kimaiPassword   string
 }
 
 func newModel() model {
@@ -81,6 +89,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tableMsg:
 		m.tableOutput = msg.output
 		return m, nil
+	case fetchMsg:
+		slog.Info("Fetch completed", "success", msg.success, "message", msg.message)
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
@@ -122,9 +134,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				slog.Info("Loading local data...")
 				return m, func() tea.Msg {
 					tableOutput := BuildSummaryTable()
-					slog.Info(tableOutput)
+					//slog.Info(tableOutput)
 					return tableMsg{output: tableOutput}
 				}
+			}
+
+		case "f":
+			if m.loginSubmitted && !m.showAbout && m.timenetPassword != "" {
+				slog.Info("Fetching Timenet data...")
+				return m, tea.Batch(
+					func() tea.Msg {
+						err := fetchTimenet(m.timenetPassword)
+						if err != nil {
+							return fetchMsg{success: false, message: "Timenet fetch failed: " + err.Error()}
+						}
+						return fetchMsg{success: true, message: "Timenet fetch completed successfully"}
+					},
+				)
 			}
 
 		case "c":
@@ -151,6 +177,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Submit when Enter is pressed on the last field
 			if s == "enter" && m.focusIndex == len(m.inputs)-1 {
+				// Store credentials
+				m.timenetPassword = m.inputs[0].Value()
+				m.kimaiID = m.inputs[1].Value()
+				m.kimaiPassword = m.inputs[2].Value()
 				m.loginSubmitted = true
 				return m, nil // Don't quit, just change state
 			}
@@ -223,11 +253,11 @@ func (m model) View() string {
 			// Show summary table output
 			b.WriteString(m.tableOutput)
 			b.WriteString("\n")
-
+			b.WriteString(helpStyle.Render("\nf fetch • c clear • esc leave • x logout • a about"))
 		} else {
 			b.WriteString("ready\n")
+			b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
 		}
-		b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
 
 	} else {
 		// Show the input form
