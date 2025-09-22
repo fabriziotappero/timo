@@ -9,17 +9,19 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 var (
-	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	cursorStyle  = focusedStyle
-	noStyle      = lipgloss.NewStyle()
-	helpStyle    = blurredStyle
+	focusedStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	blurredStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	cursorStyle        = focusedStyle
+	noStyle            = lipgloss.NewStyle()
+	helpStyle          = blurredStyle
+	statusMessageStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
 )
 
 const version = "v1.2.3" // Your app version
@@ -43,11 +45,19 @@ type model struct {
 	timenetPassword string
 	kimaiID         string
 	kimaiPassword   string
+	spinner         spinner.Model
+	statusMessage   string
+	isLoading       bool
 }
 
 func newModel() model {
+	s := spinner.New()
+	s.Spinner = spinner.MiniDot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	m := model{
-		inputs: make([]textinput.Model, 3),
+		inputs:  make([]textinput.Model, 3),
+		spinner: s,
 	}
 
 	var t textinput.Model
@@ -88,10 +98,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tableMsg:
 		m.tableOutput = msg.output
+		m.isLoading = false
+		m.statusMessage = ""
 		return m, nil
 	case fetchMsg:
 		slog.Info("Fetch completed", "success", msg.success, "message", msg.message)
+		m.isLoading = false
+		m.statusMessage = msg.message
 		return m, nil
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -131,18 +149,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "l":
 			if m.loginSubmitted && !m.showAbout {
-				slog.Info("Loading local data...")
-				return m, func() tea.Msg {
-					tableOutput := BuildSummaryTable()
-					//slog.Info(tableOutput)
-					return tableMsg{output: tableOutput}
-				}
+				m.isLoading = true
+				m.statusMessage = "Loading local data..."
+				return m, tea.Batch(
+					m.spinner.Tick,
+					func() tea.Msg {
+						tableOutput := BuildSummaryTable()
+						return tableMsg{output: tableOutput}
+					},
+				)
 			}
 
 		case "f":
-			if m.loginSubmitted && !m.showAbout && m.timenetPassword != "" {
+			if m.loginSubmitted && !m.showAbout {
+				if m.timenetPassword == "" {
+					m.statusMessage = "Timenet password is blank. Use valid password."
+					return m, nil
+				}
+				m.isLoading = true
+				m.statusMessage = "Fetching Timenet data..."
 				slog.Info("Fetching Timenet data...")
 				return m, tea.Batch(
+					m.spinner.Tick,
 					func() tea.Msg {
 						err := fetchTimenet(m.timenetPassword)
 						if err != nil {
@@ -253,11 +281,18 @@ func (m model) View() string {
 			// Show summary table output
 			b.WriteString(m.tableOutput)
 			b.WriteString("\n")
-			b.WriteString(helpStyle.Render("\nf fetch • c clear • esc leave • x logout • a about"))
 		} else {
 			b.WriteString("ready\n")
-			b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
 		}
+
+		// Show status message with spinner if loading
+		if m.isLoading && m.statusMessage != "" {
+			b.WriteString(fmt.Sprintf("%s %s\n", m.spinner.View(), statusMessageStyle.Render(m.statusMessage)))
+		} else if m.statusMessage != "" {
+			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
+		}
+
+		b.WriteString(helpStyle.Render("f fetch • l load • esc leave • x logout • a about"))
 
 	} else {
 		// Show the input form
