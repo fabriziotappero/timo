@@ -1,91 +1,246 @@
 package main
 
-import (
-	"math/rand"
+// A simple example demonstrating the use of multiple text input components
+// from the Bubbles component library.
 
-	"github.com/charmbracelet/bubbles/progress"
-	"github.com/charmbracelet/bubbles/spinner"
+import (
+	"fmt"
+	"log/slog"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
+var (
+	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	cursorStyle  = focusedStyle
+	noStyle      = lipgloss.NewStyle()
+	helpStyle    = blurredStyle
+)
 
-func newModel() model {
-	s := spinner.New()
-	s.Spinner = spinner.MiniDot
+const version = "v1.2.3" // Your app version
 
-	progress1 := createProgressBar(1, "#e40a1cff")
-
-	initialBars := []progress.Model{progress1}
-	initialColors := []string{"#e40a1cff"}
-
-	return model{
-		spinner:      s,
-		progressBars: initialBars,
-		colors:       initialColors,
-		loggedIn:     false,
-	}
-}
-
-func createProgressBar(width int, color string) progress.Model {
-	return progress.New(progress.WithSolidFill(color), progress.WithoutPercentage(), progress.WithWidth(width))
+type tableMsg struct {
+	output string
 }
 
 type model struct {
-	spinner      spinner.Model
-	progressBars []progress.Model
-	colors       []string
-	loggedIn     bool
-	quitting     bool
+	focusIndex     int
+	inputs         []textinput.Model
+	cursorMode     cursor.Mode
+	loginSubmitted bool
+	showAbout      bool
+	tableOutput    string
+}
+
+func newModel() model {
+	m := model{
+		inputs: make([]textinput.Model, 3),
+	}
+
+	var t textinput.Model
+	for i := range m.inputs {
+		t = textinput.New()
+		t.Cursor.Style = cursorStyle
+		t.CharLimit = 64
+		t.Width = 30
+
+		switch i {
+		case 0:
+			t.Placeholder = "Timenet Password"
+			t.Focus()
+			t.PromptStyle = focusedStyle
+			t.TextStyle = focusedStyle
+			t.EchoMode = textinput.EchoPassword
+			t.EchoCharacter = '•'
+		case 1:
+			t.Placeholder = "Kimai ID"
+			t.CharLimit = 64
+		case 2:
+			t.Placeholder = "Kimai Password"
+			t.EchoMode = textinput.EchoPassword
+			t.EchoCharacter = '•'
+		}
+
+		m.inputs[i] = t
+	}
+
+	return m
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
+	case tableMsg:
+		m.tableOutput = msg.output
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q":
-			m.quitting = true
+		case "ctrl+c", "esc":
 			return m, tea.Quit
 
+		case "x":
+			// Only handle logout if we're logged in (not typing in inputs)
+			if m.loginSubmitted {
+				m.loginSubmitted = false
+				m.focusIndex = 0
+				// Clear all input values
+				for i := range m.inputs {
+					m.inputs[i].SetValue("")
+					m.inputs[i].Blur()
+				}
+				// Focus the first input
+				m.inputs[0].Focus()
+				m.inputs[0].PromptStyle = focusedStyle
+				m.inputs[0].TextStyle = focusedStyle
+				return m, nil
+			}
+
 		case "a":
-			// Add a new progress bar when 'a', 'enter', or 'space' is pressed
-			colors := []string{"#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"}
-			randomColor := colors[rand.Intn(len(colors))]
-			randomWidth := 1 + rand.Intn(10) // Random width between 1-10
+			// Only handle about screen if we're logged in (not typing in inputs)
+			if m.loginSubmitted {
+				m.showAbout = true
+				return m, nil
+			}
 
-			newBar := createProgressBar(randomWidth, randomColor)
-			m.progressBars = append(m.progressBars, newBar)
-			m.colors = append(m.colors, randomColor)
+		case "b":
+			// Handle back from about screen
+			if m.showAbout {
+				m.showAbout = false
+				return m, nil
+			}
 
-			return m, nil
+		case "l":
+			if m.loginSubmitted && !m.showAbout {
+				slog.Info("Loading local data...")
+				return m, func() tea.Msg {
+					tableOutput := BuildSummaryTable()
+					slog.Info(tableOutput)
+					return tableMsg{output: tableOutput}
+				}
+			}
 
+		case "c":
+			// Clear table output when logged in
+			if m.loginSubmitted && !m.showAbout {
+				m.tableOutput = ""
+				return m, nil
+			}
+
+		case "ctrl+r":
+			m.cursorMode++
+			if m.cursorMode > cursor.CursorHide {
+				m.cursorMode = cursor.CursorBlink
+			}
+			cmds := make([]tea.Cmd, len(m.inputs))
+			for i := range m.inputs {
+				cmds[i] = m.inputs[i].Cursor.SetMode(m.cursorMode)
+			}
+			return m, tea.Batch(cmds...)
+
+		// Set focus to next input
+		case "tab", "shift+tab", "enter", "up", "down":
+			s := msg.String()
+
+			// Submit when Enter is pressed on the last field
+			if s == "enter" && m.focusIndex == len(m.inputs)-1 {
+				m.loginSubmitted = true
+				return m, nil // Don't quit, just change state
+			}
+
+			// Cycle indexes
+			if s == "up" || s == "shift+tab" {
+				m.focusIndex--
+			} else {
+				m.focusIndex++
+			}
+
+			if m.focusIndex > len(m.inputs)-1 {
+				m.focusIndex = 0
+			} else if m.focusIndex < 0 {
+				m.focusIndex = len(m.inputs) - 1
+			}
+
+			cmds := make([]tea.Cmd, len(m.inputs))
+			for i := 0; i <= len(m.inputs)-1; i++ {
+				if i == m.focusIndex {
+					// Set focused state
+					cmds[i] = m.inputs[i].Focus()
+					m.inputs[i].PromptStyle = focusedStyle
+					m.inputs[i].TextStyle = focusedStyle
+					continue
+				}
+				// Remove focused state
+				m.inputs[i].Blur()
+				m.inputs[i].PromptStyle = noStyle
+				m.inputs[i].TextStyle = noStyle
+			}
+
+			return m, tea.Batch(cmds...)
 		}
-
-	default:
-		return m, nil
 	}
+
+	// Always update inputs when we're in login form state or about screen is not shown
+	if !m.loginSubmitted || !m.showAbout {
+		cmd := m.updateInputs(msg)
+		return m, cmd
+	}
+
 	return m, nil
 }
 
-func (m model) View() string {
-	var result string
-
-	if !m.loggedIn {
-		result = "Please login to Timenet/Kimai to fetch data.\n\n"
+func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
+	cmds := make([]tea.Cmd, len(m.inputs))
+	for i := range m.inputs {
+		m.inputs[i], cmds[i] = m.inputs[i].Update(msg)
 	}
 
-	// for _, bar := range m.progressBars {
-	// 	result += bar.ViewAs(1.0) + " "
-	// }
-	// result += " 8h:34m\n"
+	return tea.Batch(cmds...)
+}
 
-	result += helpStyle(" l login • q quit")
+func (m model) View() string {
+	var b strings.Builder
 
-	return result
+	if m.showAbout {
+		// Show about screen (available from any state)
+		b.WriteString(fmt.Sprintf("TIMO %s\n\n", version))
+		b.WriteString("A time tracking management tool\n")
+		b.WriteString("built in Golang with Bubble Tea ❤️\n\n")
+		b.WriteString("Checking for new version...\n")
+		b.WriteString("New Version available at: https://github.com/fabriziotappero/timo/releases\n\n")
+
+		b.WriteString(helpStyle.Render("b back • esc leave"))
+
+	} else if m.loginSubmitted {
+		// Show main logged-in screen
+		if m.tableOutput != "" {
+			// Show the table output
+			b.WriteString(m.tableOutput)
+			b.WriteString("\n")
+			b.WriteString(helpStyle.Render("c clear • esc leave • x logout • a about"))
+		} else {
+			// Show ready state
+			b.WriteString("ready\n")
+			b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
+		}
+
+	} else {
+		// Show the input form
+		for i := range m.inputs {
+			b.WriteString(m.inputs[i].View())
+			if i < len(m.inputs)-1 {
+				b.WriteRune('\n')
+			}
+		}
+		b.WriteString(helpStyle.Render("\n\nesc leave • enter submit"))
+	}
+
+	return b.String()
 }

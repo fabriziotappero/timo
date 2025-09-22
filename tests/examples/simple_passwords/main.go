@@ -185,17 +185,18 @@ func (m model) View() string {
 
 	if m.showAbout {
 		// Show about screen (available from any state)
-		b.WriteString("About TIMO\n\n")
-		b.WriteString(fmt.Sprintf("Version: %s\n", version))
+		b.WriteString(fmt.Sprintf("TIMO %s\n\n", version))
 		b.WriteString("A time tracking management tool\n")
 		b.WriteString("built in Golang with Bubble Tea ❤️\n\n")
+		b.WriteString("Checking for new version...\n")
+		b.WriteString("New Version available at: https://github.com/fabriziotappero/timo/releases\n\n")
 
 		b.WriteString(helpStyle.Render("b back • esc leave"))
 
 	} else if m.loginSubmitted {
 		// Show main logged-in screen
 		b.WriteString("ready\n")
-		b.WriteString(helpStyle.Render("\nf fetch • l load • a about • esc leave • x logout"))
+		b.WriteString(helpStyle.Render("\nf fetch • l load • esc leave • x logout • a about"))
 
 	} else {
 		// Show the input form
@@ -205,7 +206,7 @@ func (m model) View() string {
 				b.WriteRune('\n')
 			}
 		}
-		b.WriteString(helpStyle.Render("\nesc leave • enter submit"))
+		b.WriteString(helpStyle.Render("\n\nesc leave • enter submit"))
 	}
 
 	return b.String()

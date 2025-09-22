@@ -7,42 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// func main() {
-
-// 	// to get debug info use:  go run . --debug
-// 	// track logged data with: tail -f /tmp/timo_debug.log
-// 	debugMode := false
-// 	for _, arg := range os.Args[1:] {
-// 		if arg == "--debug" {
-// 			debugMode = true
-// 			break
-// 		}
-// 	}
-// 	logInit(debugMode)
-
-// 	// download Chromium if not available
-// 	setupScraper()
-
-// 	model := newModel()
-// 	p := tea.NewProgram(model)
-
-// 	// background process
-// 	go func() {
-// 		for {
-// 			time.Sleep(3000 * time.Millisecond)
-
-// 			// LOAD LOCAL JOSON FILES AND GENERATE SUMMARY TABLE
-// 			p.Send(resultMsg{some_text: BuildSummaryTable(), some_num: 0})
-// 		}
-// 	}()
-
-// 	// START UI
-// 	if _, err := p.Run(); err != nil {
-// 		slog.Error("Error running UI:", err)
-// 		os.Exit(1)
-// 	}
-// }
-
 func main() {
 
 	// to get debug info use:  go run . --debug
@@ -64,6 +28,7 @@ func main() {
 
 		os.Exit(1)
 	}
+
 }
 
 func fetchTimenet(password string) error {
