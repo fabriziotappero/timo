@@ -66,7 +66,7 @@ func BuildSummaryTable() string {
 	result.WriteString(fmt.Sprintf(" Required Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Timenet Clocked Time:  %s\n", timenet_data.Summary.WorkedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Kimai Clocked Time:    %s\n", kimai_data.Summary.WorkedHours))
-	result.WriteString(fmt.Sprintf(" Total Yearly Overtime: %s\n", timenet_data.Summary.AccumuletedHoursInYear))
+	result.WriteString(fmt.Sprintf(" Yearly Overtime:       %s\n", timenet_data.Summary.AccumuletedHoursInYear))
 	result.WriteString("==========================================")
 	return result.String()
 }

@@ -1,12 +1,10 @@
 package main
 
-// A simple example demonstrating the use of multiple text input components
-// from the Bubbles component library.
-
 import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -155,6 +153,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
+						time.Sleep(990 * time.Millisecond) // Small delay to let UI show m.statusMessage
 						tableOutput := BuildSummaryTable()
 						return tableMsg{output: tableOutput}
 					},
@@ -164,12 +163,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f":
 			if m.loginSubmitted && !m.showAbout {
 				if m.timenetPassword == "" {
-					m.statusMessage = "Timenet password is blank. Use valid password."
+					m.statusMessage = "Timenet password is blank, use valid password."
+					return m, nil
+				}
+				if m.kimaiID == "" || m.kimaiPassword == "" {
+					m.statusMessage = "Kimai credentials are blank, use valid credentials."
 					return m, nil
 				}
 				m.isLoading = true
-				m.statusMessage = "Fetching Timenet data..."
-				slog.Info("Fetching Timenet data...")
+				m.statusMessage = "Fetching remote data..."
+				slog.Info("Fetching remote data...")
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
@@ -177,7 +180,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if err != nil {
 							return fetchMsg{success: false, message: "Timenet fetch failed: " + err.Error()}
 						}
+						time.Sleep(1 * time.Second) // Keep message visible
 						return fetchMsg{success: true, message: "Timenet fetch completed successfully"}
+					},
+					func() tea.Msg {
+						err := fetchKimai(m.kimaiID, m.kimaiPassword)
+						if err != nil {
+							return fetchMsg{success: false, message: "Kimai fetch failed: " + err.Error()}
+						}
+						time.Sleep(1 * time.Second) // Keep message visible
+						return fetchMsg{success: true, message: "Kimai fetch completed successfully"}
 					},
 				)
 			}
@@ -272,6 +284,7 @@ func (m model) View() string {
 
 	} else if m.loginSubmitted {
 		if m.tableOutput != "" {
+
 			// Show summary table output
 			b.WriteString(m.tableOutput + "\n")
 		} else {
