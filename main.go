@@ -5,6 +5,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/yosssi/gohtml"
 )
 
 func main() {
@@ -16,6 +17,10 @@ func main() {
 		if arg == "--debug" {
 			debugMode = true
 			break
+		}
+		if arg == "--test" {
+			testTimenetParsing()
+			return
 		}
 	}
 	logInit(debugMode)
@@ -43,7 +48,12 @@ func fetchTimenet(password string) error {
 
 	// clean up HTML
 	cleanHTML(&_html)
-	os.WriteFile("dump.html", []byte(_html), 0644)
+
+	// DEBUG
+	if true {
+		_html = gohtml.Format(_html)
+		os.WriteFile("dump.html", []byte(_html), 0644)
+	}
 
 	// PARSE HTML AND SAVE IN LOCAL JSON
 	slog.Info("Starting Timenet data parsing")

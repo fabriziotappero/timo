@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -15,10 +16,10 @@ import (
 
 // KIMAI DATA STRUCTURE
 type KimaiData struct {
-	PresentDate string           `json:"present_date"`
-	PresentTime string           `json:"present_time"`
-	Summary     KimaiSummary     `json:"summary"`
-	DailyData   []KimaiDailyData `json:"daily_data"`
+	PresentDate string             `json:"present_date"`
+	PresentTime string             `json:"present_time"`
+	Summary     KimaiSummary       `json:"summary"`
+	MonthlyData []KimaiMonthlyData `json:"monthly_data"`
 }
 
 type KimaiSummary struct {
@@ -27,7 +28,7 @@ type KimaiSummary struct {
 	WorkedHours       string `json:"worked_hours"`
 }
 
-type KimaiDailyData struct {
+type KimaiMonthlyData struct {
 	Date        int    `json:"date"`
 	In          string `json:"in"`
 	Out         string `json:"out"`
@@ -39,10 +40,11 @@ type KimaiDailyData struct {
 
 // TIMENET DATA STRUCTURE
 type TimenetData struct {
-	Date      string             `json:"current_date"`
-	Time      string             `json:"current_time"`
-	Summary   TimenetSummary     `json:"summary"`
-	DailyData []TimenetDailyData `json:"daily_data"`
+	Date           string               `json:"current_date"`
+	Time           string               `json:"current_time"`
+	ReportingMonth string               `json:"reporting_month"`
+	Summary        TimenetSummary       `json:"summary"`
+	MonthlyData    []TimenetMonthlyData `json:"monthly_data"`
 }
 
 type TimenetSummary struct {
@@ -55,12 +57,14 @@ type TimenetSummary struct {
 	AccumuletedHoursInYear  string `json:"accumuleted_hours_in_year"`
 }
 
-type TimenetDailyData struct {
-	Day           int    `json:"day"`
+type TimenetMonthlyData struct {
+	Date          string `json:"date"`
 	ExpectedHours string `json:"expected_hours"`
 	WorkedHours   string `json:"worked_hours"`
 	Difference    string `json:"difference"`
-	IsWorkable    bool   `json:"is_workable"`
+	IsWorkingDay  bool   `json:"is_working_day"`
+	IsHoliday     bool   `json:"is_holiday"`
+	IsVacation    bool   `json:"is_vacation"`
 }
 
 // timenetParse extracts data from Timenet HTML and saves to JSON file
@@ -80,20 +84,44 @@ func timenetParse(htmlContent *string) error {
 		return err
 	}
 
-	// type TimenetDailyData struct {
-	// 	Day           int    `json:"day"`
-	// 	ExpectedHours string `json:"expected_hours"`
-	// 	WorkedHours   string `json:"worked_hours"`
-	// 	Difference    string `json:"difference"`
-	// 	IsWorkable    bool   `json:"is_workable"`
+	data.Summary.ReportingDate = strings.TrimSpace(doc.Find("div.container-mes-checks h2").First().Text())
+	data.ReportingMonth = data.Summary.ReportingDate // Store the month at top level too
+	data.Summary.ExpectedHoursInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(1).Text())
+	data.Summary.ExpectedHoursInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(2).Text())
+	data.Summary.WorkedHoursInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(1).Text())
+	data.Summary.WorkedHoursInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(2).Text())
+	data.Summary.AccumuletedHoursInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(1).Text())
+	data.Summary.AccumuletedHoursInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(2).Text())
 
-	data.Summary.ReportingDate = doc.Find("div.container-mes-checks h2").First().Text()
-	data.Summary.ExpectedHoursInMonth = doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(1).Text()
-	data.Summary.ExpectedHoursInYear = doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(2).Text()
-	data.Summary.WorkedHoursInMonth = doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(1).Text()
-	data.Summary.WorkedHoursInYear = doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(2).Text()
-	data.Summary.AccumuletedHoursInMonth = "nod defined"
-	data.Summary.AccumuletedHoursInYear = doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(2).Text()
+	// extract daily data
+	monthlyRows := doc.Find("table.table-checks tbody tr")
+	slog.Info("Found and extracting daily rows: ", "count", monthlyRows.Length())
+
+	monthlyRows.Each(func(i int, row *goquery.Selection) {
+		monthlyData := TimenetMonthlyData{}
+
+		monthlyData.Date = strings.TrimSpace(row.Find(".day-value").Text())
+
+		dayTypeName := strings.TrimSpace(row.Find(".day-type-name").Text())
+		monthlyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
+
+		monthlyData.IsVacation = strings.Contains(dayTypeName, "Vacation") ||
+			strings.Contains(dayTypeName, "Vacaciones") ||
+			strings.Contains(dayTypeName, "Ausencia") ||
+			(dayTypeName != "" && dayTypeName != "Laborable" && dayTypeName != "non working day" && !monthlyData.IsHoliday)
+
+		monthlyData.ExpectedHours = strings.TrimSpace(row.Find(".prevision-day-check").Text())
+		monthlyData.WorkedHours = strings.TrimSpace(row.Find(".total-day-check span").Text())
+		monthlyData.Difference = strings.TrimSpace(row.Find(".diff-day-check span").Text())
+
+		// A working day should have expected hours set (data-driven approach)
+		monthlyData.IsWorkingDay = monthlyData.ExpectedHours != ""
+
+		// Only add if we have a valid date
+		if monthlyData.Date != "" {
+			data.MonthlyData = append(data.MonthlyData, monthlyData)
+		}
+	})
 
 	// Save to JSON file
 	filename := fmt.Sprintf("timenet_data_%s.json", time.Now().Format("2006-01-02"))
@@ -211,4 +239,24 @@ func kimaiParse(htmlContent *string) error {
 
 	slog.Info("Kimai data saved to " + filename)
 	return nil
+}
+
+func testTimenetParsing() {
+
+	// Read the dump.html file
+	content, err := os.ReadFile("dump.html")
+	if err != nil {
+		log.Fatal("Error reading dump.html:", err)
+	}
+
+	htmlString := string(content)
+
+	// Test the timenet parsing
+	fmt.Println("Testing Timenet HTML parsing...")
+	err = timenetParse(&htmlString)
+	if err != nil {
+		log.Fatal("Error parsing Timenet data:", err)
+	}
+
+	fmt.Println("Parsing completed successfully! Check the JSON file in temp directory.")
 }

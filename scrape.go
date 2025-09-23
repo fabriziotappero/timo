@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/chromedp/chromedp"
+	"github.com/yosssi/gohtml"
 )
 
 var chromiumPath string = ""
@@ -77,8 +79,13 @@ func scrapeTimenet(password string) (string, error) {
 		return "", fmt.Errorf("failed to scrape Timenet Web: %v", err)
 	}
 
-	// dump HTML to file for debugging
-	//os.WriteFile("dump.html", []byte(responseHTML), 0644)
+	// DEBUG dump HTML to file
+	if false {
+		cleanHTML(&responseHTML)
+		responseHTML = gohtml.Format(responseHTML)
+		os.WriteFile("dump.html", []byte(responseHTML), 0644)
+		//os.Exit(0)
+	}
 
 	// Return the response HTML
 	slog.Info("Timenet Web scrape successful")
