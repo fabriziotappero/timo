@@ -1,4 +1,3 @@
-// table.go
 package main
 
 import (
@@ -14,6 +13,7 @@ import (
 )
 
 var redStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+var boldStyle = lipgloss.NewStyle().Bold(true)
 
 // readLatestJSON finds and reads the most recent JSON file with the given prefix
 func readLatestJSON[T any](prefix string) (*T, error) {
@@ -68,5 +68,35 @@ func BuildSummaryTable() string {
 	result.WriteString(fmt.Sprintf(" Kimai Clocked Time:    %s\n", kimai_data.Summary.WorkedHours))
 	result.WriteString(fmt.Sprintf(" Total Yearly Overtime: %s\n", timenet_data.Summary.AccumuletedHoursInYear))
 	result.WriteString("==========================================")
+	return result.String()
+}
+
+func BuildAboutMessage() string {
+
+	var result strings.Builder
+
+	localMajor, localMinor, localPatch, err := ReadLocalVersion()
+	var version string = ""
+	if err == nil {
+		version = fmt.Sprintf("%d.%d.%d", localMajor, localMinor, localPatch)
+	}
+
+	result.WriteString(fmt.Sprintf("%s v%s\n\n", boldStyle.Render("TIMO"), version))
+	result.WriteString("A time tracking management tool build\n")
+	result.WriteString("in Golang with Bubble Tea ❤️\n\n")
+	result.WriteString("checking...\n")
+
+	// get version from env variable
+	res, err := NewVersionAvailable()
+	if err != nil {
+		result.WriteString("Error checking for new version.\n")
+	} else if res {
+		result.WriteString("🚀 new version available at: https://github.com/fabriziotappero/timo/releases\n")
+	} else {
+		result.WriteString("👍 you are using the latest version.\n")
+	}
+
+	result.WriteString(helpStyle.Render("\nb back • esc leave"))
+
 	return result.String()
 }

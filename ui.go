@@ -24,8 +24,6 @@ var (
 	statusMessageStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
 )
 
-const version = "v1.2.3" // Your app version
-
 type tableMsg struct {
 	output string
 }
@@ -36,18 +34,21 @@ type fetchMsg struct {
 }
 
 type model struct {
-	focusIndex      int
-	inputs          []textinput.Model
-	cursorMode      cursor.Mode
-	loginSubmitted  bool
-	showAbout       bool
-	tableOutput     string
+	focusIndex     int
+	inputs         []textinput.Model
+	cursorMode     cursor.Mode
+	loginSubmitted bool
+	showAbout      bool
+	// main UI
+	tableOutput   string
+	statusMessage string
+
 	timenetPassword string
 	kimaiID         string
 	kimaiPassword   string
-	spinner         spinner.Model
-	statusMessage   string
-	isLoading       bool
+
+	spinner   spinner.Model
+	isLoading bool
 }
 
 func newModel() model {
@@ -134,7 +135,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "a":
-			// Only handle about screen if we're logged in (not typing in inputs)
+			// Only handle about screen if we're logged in (not typing passwords)
 			if m.loginSubmitted {
 				m.showAbout = true
 				return m, nil
@@ -267,20 +268,12 @@ func (m model) View() string {
 	var b strings.Builder
 
 	if m.showAbout {
-		// Show about screen (available from any state)
-		b.WriteString(fmt.Sprintf("TIMO %s\n\n", version))
-		b.WriteString("A time tracking management tool\n")
-		b.WriteString("built in Golang with Bubble Tea ❤️\n\n")
-		b.WriteString("Checking for new version...\n")
-		b.WriteString("New Version available at: https://github.com/fabriziotappero/timo/releases\n\n")
-
-		b.WriteString(helpStyle.Render("b back • esc leave"))
+		b.WriteString(BuildAboutMessage())
 
 	} else if m.loginSubmitted {
 		if m.tableOutput != "" {
 			// Show summary table output
-			b.WriteString(m.tableOutput)
-			b.WriteString("\n")
+			b.WriteString(m.tableOutput + "\n")
 		} else {
 			b.WriteString("ready\n")
 		}
@@ -292,7 +285,7 @@ func (m model) View() string {
 			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
 		}
 
-		b.WriteString(helpStyle.Render("f fetch • l load • esc leave • x logout • a about"))
+		b.WriteString(helpStyle.Render("f fetch • l load • x logout • esc leave • a about"))
 
 	} else {
 		// Show the input form
@@ -302,7 +295,8 @@ func (m model) View() string {
 				b.WriteRune('\n')
 			}
 		}
-		b.WriteString(helpStyle.Render("\n\nesc leave • enter submit"))
+		b.WriteString(helpStyle.Render("\n\nenter submit • esc leave"))
+
 	}
 
 	return b.String()
