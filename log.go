@@ -25,7 +25,7 @@ func logInit(debugMode bool) {
 				Level: slog.LevelDebug,
 			}))
 			// Create a simple log file link in current directory
-			os.Symlink(logFilePath, "timo_debug.log")
+			//os.Symlink(logFilePath, "timo_debug.log")
 		}
 		logger.Info("Running in DEBUG mode", "log_file", logFilePath)
 	} else {
