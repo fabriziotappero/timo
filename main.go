@@ -79,7 +79,7 @@ func fetchKimai(id string, password string) error {
 	}
 
 	// DEBUG
-	if true {
+	if false {
 		_html = gohtml.Format(_html)
 		os.WriteFile("dump.html", []byte(_html), 0644)
 	}

@@ -2,7 +2,7 @@
 # build.sh - Build timo for Linux and Windows with version info using ldflags
 
 
-VERSION="0.8.1"
+VERSION="0.8.2"
 
 LINUX_OUTPUT=build/timo
 WIN_OUTPUT=build/timo.exe
