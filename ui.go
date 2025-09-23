@@ -22,7 +22,7 @@ var (
 	statusMessageStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
 )
 
-type tableMsg struct {
+type mainContentMsg struct {
 	output string
 }
 
@@ -37,9 +37,10 @@ type model struct {
 	cursorMode     cursor.Mode
 	loginSubmitted bool
 	showAbout      bool
-	// main UI
-	tableOutput   string
-	statusMessage string
+
+	// main UI areas
+	mainContent   string // holds the main content for data coming from JSON files
+	statusMessage string // holds status messages like "fetching data..."
 
 	timenetPassword string
 	kimaiID         string
@@ -95,8 +96,8 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tableMsg:
-		m.tableOutput = msg.output
+	case mainContentMsg:
+		m.mainContent = msg.output
 		m.isLoading = false
 		m.statusMessage = ""
 		return m, nil
@@ -104,6 +105,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		slog.Info("Fetch completed", "success", msg.success, "message", msg.message)
 		m.isLoading = false
 		m.statusMessage = msg.message
+
+		// Auto-load main UI content after successful fetch
+		if msg.success {
+			return m, func() tea.Msg {
+				time.Sleep(1 * time.Second) // Let the success message show briefly
+				summary := BuildSummary()
+				return mainContentMsg{output: summary}
+			}
+		}
+
 		return m, nil
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -153,9 +164,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
-						time.Sleep(990 * time.Millisecond) // Small delay to let UI show m.statusMessage
-						tableOutput := BuildSummaryTable()
-						return tableMsg{output: tableOutput}
+						time.Sleep(1 * time.Second) // Small delay to let UI show m.statusMessage
+						summary := BuildSummary()
+						return mainContentMsg{output: summary}
 					},
 				)
 			}
@@ -195,9 +206,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "c":
-			// Clear table output when logged in
+			// Clear UI main content when logged in
 			if m.loginSubmitted && !m.showAbout {
-				m.tableOutput = ""
+				m.mainContent = ""
 				return m, nil
 			}
 
@@ -283,12 +294,13 @@ func (m model) View() string {
 		b.WriteString(BuildAboutMessage())
 
 	} else if m.loginSubmitted {
-		if m.tableOutput != "" {
+		if m.mainContent != "" {
 
-			// Show summary table output
-			b.WriteString(m.tableOutput + "\n")
+			// Show UI main content output
+			b.WriteString(m.mainContent + "\n")
 		} else {
-			b.WriteString("ready\n")
+			// we should not use the main content area for status messages
+			b.WriteString("ready\n\n")
 		}
 
 		// Show status message with spinner if loading
@@ -298,7 +310,7 @@ func (m model) View() string {
 			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
 		}
 
-		b.WriteString(helpStyle.Render("f fetch • l load • x logout • esc leave • a about"))
+		b.WriteString(helpStyle.Render("f fetch • l load • c clear • x logout • esc leave • a about"))
 
 	} else {
 		// Show the input form
