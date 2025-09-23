@@ -29,7 +29,7 @@ type KimaiSummary struct {
 }
 
 type KimaiMonthlyData struct {
-	Date        int    `json:"date"`
+	Date        string `json:"date"`
 	In          string `json:"in"`
 	Out         string `json:"out"`
 	WorkedHours string `json:"worked_hours"`
@@ -61,7 +61,7 @@ type TimenetMonthlyData struct {
 	Date          string `json:"date"`
 	ExpectedHours string `json:"expected_hours"`
 	WorkedHours   string `json:"worked_hours"`
-	Difference    string `json:"difference"`
+	Overtime      string `json:"overtime"`
 	IsWorkingDay  bool   `json:"is_working_day"`
 	IsHoliday     bool   `json:"is_holiday"`
 	IsVacation    bool   `json:"is_vacation"`
@@ -100,7 +100,8 @@ func timenetParse(htmlContent *string) error {
 	monthlyRows.Each(func(i int, row *goquery.Selection) {
 		monthlyData := TimenetMonthlyData{}
 
-		monthlyData.Date = strings.TrimSpace(row.Find(".day-value").Text())
+		// store data into format YYYY/MM/DD
+		monthlyData.Date = convertDateFormat(strings.TrimSpace(row.Find(".day-value").Text()))
 
 		dayTypeName := strings.TrimSpace(row.Find(".day-type-name").Text())
 		monthlyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
@@ -112,7 +113,7 @@ func timenetParse(htmlContent *string) error {
 
 		monthlyData.ExpectedHours = strings.TrimSpace(row.Find(".prevision-day-check").Text())
 		monthlyData.WorkedHours = strings.TrimSpace(row.Find(".total-day-check span").Text())
-		monthlyData.Difference = strings.TrimSpace(row.Find(".diff-day-check span").Text())
+		monthlyData.Overtime = strings.TrimSpace(row.Find(".diff-day-check span").Text())
 
 		// A working day should have expected hours set (data-driven approach)
 		monthlyData.IsWorkingDay = monthlyData.ExpectedHours != ""
@@ -203,9 +204,6 @@ func cleanHTML(html *string) {
 	// Remove inline style attributes
 	styleAttrRe := regexp.MustCompile(`\s+style="[^"]*"`)
 	*html = styleAttrRe.ReplaceAllString(*html, "")
-
-	// Format the cleaned HTML
-	//*html = gohtml.Format(*html)
 }
 
 // extracts data from Kimai HTML and saves to JSON file
@@ -226,9 +224,56 @@ func kimaiParse(htmlContent *string) error {
 	}
 
 	// Extract summary data
+	// TODO these dates are not the right format FIXIT
 	data.Summary.ReportingDateFrom = doc.Find("#pick_in").AttrOr("value", "")
 	data.Summary.ReportingDateTo = doc.Find("#pick_out").AttrOr("value", "")
-	data.Summary.WorkedHours = doc.Find("#display_total").Text()
+	data.Summary.WorkedHours = formatTimeFromHMS(strings.TrimSpace(doc.Find("#display_total").Text()))
+
+	// Extract monthly data from timesheet entries
+	monthlyRows := doc.Find("#timeSheetTable table tbody tr")
+	slog.Info("Found and extracting timesheet rows: ", "count", monthlyRows.Length())
+
+	monthlyRows.Each(func(i int, row *goquery.Selection) {
+		monthlyData := KimaiMonthlyData{}
+
+		// Extract date and convert it in format YYYY/MM/DD)
+		dateText := strings.TrimSpace(row.Find("td.date").Text())
+		monthlyData.Date = convertDateFormat(dateText)
+
+		// Extract in/out times and convert to Xh Ym format
+		monthlyData.In = formatTimeFromHMS(strings.TrimSpace(row.Find("td.from").Text()))
+		monthlyData.Out = formatTimeFromHMS(strings.TrimSpace(row.Find("td.to").Text()))
+
+		// Extract worked hours (format H:MM:SS) and convert to Xh Ym format
+		workedHoursRaw := strings.TrimSpace(row.Find("td.time").Text())
+		monthlyData.WorkedHours = formatTimeFromHMS(workedHoursRaw)
+
+		// Extract customer name
+		monthlyData.Customer = strings.TrimSpace(row.Find("td.customer").Text())
+
+		// Extract project name (may be inside a link)
+		projectCell := row.Find("td.project")
+		projectLink := projectCell.Find("a")
+		if projectLink.Length() > 0 {
+			monthlyData.Project = strings.TrimSpace(projectLink.Text())
+		} else {
+			monthlyData.Project = strings.TrimSpace(projectCell.Text())
+		}
+
+		// Extract activity name (may be inside a link)
+		activityCell := row.Find("td.activity")
+		activityLink := activityCell.Find("a")
+		if activityLink.Length() > 0 {
+			monthlyData.Activity = strings.TrimSpace(activityLink.Text())
+		} else {
+			monthlyData.Activity = strings.TrimSpace(activityCell.Text())
+		}
+
+		// Only add if we have a valid date
+		if monthlyData.Date != "" && dateText != "" {
+			data.MonthlyData = append(data.MonthlyData, monthlyData)
+		}
+	})
 
 	// Save to JSON file
 	filename := fmt.Sprintf("kimai_data_%s.json", time.Now().Format("2006-01-02"))
@@ -239,6 +284,26 @@ func kimaiParse(htmlContent *string) error {
 
 	slog.Info("Kimai data saved to " + filename)
 	return nil
+}
+
+func testKimaiParsing() {
+
+	// Read the dump.html file
+	content, err := os.ReadFile("dump.html")
+	if err != nil {
+		log.Fatal("Error reading dump.html:", err)
+	}
+
+	htmlString := string(content)
+
+	// Test the kimai parsing
+	fmt.Println("Testing Kimai HTML parsing...")
+	err = kimaiParse(&htmlString)
+	if err != nil {
+		log.Fatal("Error parsing Kimai data:", err)
+	}
+
+	fmt.Println("Kimai parsing completed successfully! Check the JSON file in temp directory.")
 }
 
 func testTimenetParsing() {

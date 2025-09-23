@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // convertTimeStringToMinutes converts a time string like "9h 14m" or "-2h 30m" to total minutes
@@ -88,6 +90,76 @@ func convertMinutesToTimeString(totalMinutes int) string {
 	}
 
 	return result
+}
+
+// formatTimeFromHMS converts time from HH:MM:SS format to Xh Ym format
+func formatTimeFromHMS(timeStr string) string {
+	if timeStr == "" {
+		return ""
+	}
+
+	// Trim whitespace first
+	timeStr = strings.TrimSpace(timeStr)
+
+	// Check for negative sign
+	isNegative := false
+	if strings.HasPrefix(timeStr, "-") {
+		isNegative = true
+		timeStr = strings.TrimPrefix(timeStr, "-")
+		timeStr = strings.TrimSpace(timeStr) // Remove any spaces after the minus sign
+	}
+
+	// Parse HH:MM:SS format
+	parts := strings.Split(timeStr, ":")
+	if len(parts) < 2 {
+		return timeStr // Return original if format is unexpected
+	}
+
+	hours, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return timeStr // Return original if parsing fails
+	}
+
+	minutes, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return timeStr // Return original if parsing fails
+	}
+
+	// Format as Xh Ym
+	var result string
+	if hours == 0 {
+		result = fmt.Sprintf("%dm", minutes)
+	} else if minutes == 0 {
+		result = fmt.Sprintf("%dh", hours)
+	} else {
+		result = fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+
+	// Add negative sign if needed
+	if isNegative {
+		result = "-" + result
+	}
+
+	return result
+}
+
+// converts date from DD/MM/YYYY format to YYYY/MM/DD format
+func convertDateFormat(dateStr string) string {
+	if dateStr == "" {
+		return ""
+	}
+	dateStr = strings.TrimSpace(dateStr)
+
+	if dateStr == "" {
+		return ""
+	}
+
+	parsedTime, err := time.Parse("02/01/2006", dateStr)
+	if err != nil {
+		slog.Warn("Failed to parse Kimai date", "date", dateStr, "error", err)
+		return dateStr
+	}
+	return parsedTime.Format("2006/01/02")
 }
 
 // testConvertTimeStringToMinutes tests the convertTimeStringToMinutes function with various inputs
@@ -209,9 +281,119 @@ func testConvertMinutesToTimeString() {
 		fmt.Println("❌ Some tests FAILED!")
 	}
 }
+
+// testFormatTimeFromHMS tests the formatTimeFromHMS function with various inputs
+func testFormatTimeFromHMS() {
+	fmt.Println("Testing formatTimeFromHMS function:")
+	fmt.Println(strings.Repeat("=", 40))
+
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"8:00:00", "8h"},
+		{"11:23:54", "11h 23m"},
+		{"0:30:45", "30m"},
+		{"1:00:00", "1h"},
+		{"0:05:00", "5m"},
+		{"12:30:15", "12h 30m"},
+		{"-2:30:00", "-2h 30m"},
+		{"-1:00:00", "-1h"},
+		{"-0:45:30", "-45m"},
+		{"-3:15:45", "-3h 15m"},
+		{"-0:05:00", "-5m"},
+		{"", ""},
+		{"invalid", "invalid"},
+		{"1:30", "1h 30m"},
+		{"-1:30", "-1h 30m"},
+		{" -1:30", "-1h 30m"},
+		{"  -1:30 ", "-1h 30m"},
+		{"  -1:30     ", "-1h 30m"},
+	}
+
+	allPassed := true
+	for i, tc := range testCases {
+		result := formatTimeFromHMS(tc.input)
+		if result != tc.expected {
+			fmt.Printf("❌ Test %d FAILED: formatTimeFromHMS('%s') = '%s', expected '%s'\n",
+				i+1, tc.input, result, tc.expected)
+			allPassed = false
+		} else {
+			fmt.Printf("✅ Test %d PASSED: '%s' -> '%s'\n", i+1, tc.input, result)
+		}
+	}
+
+	fmt.Println(strings.Repeat("=", 40))
+	if allPassed {
+		fmt.Println("🎉 All formatTimeFromHMS tests PASSED!")
+	} else {
+		fmt.Println("❌ Some formatTimeFromHMS tests FAILED!")
+	}
+}
+
+// testConvertDateFormat tests the convertDateFormat function with various inputs
+func testConvertDateFormat() {
+	fmt.Println("Testing convertDateFormat function:")
+	fmt.Println(strings.Repeat("=", 40))
+
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		// Valid date formats
+		{"01/01/2025", "2025/01/01"},
+		{"25/12/2024", "2024/12/25"},
+		{"15/06/2023", "2023/06/15"},
+		{"29/02/2024", "2024/02/29"}, // Leap year
+		{"31/12/1999", "1999/12/31"},
+
+		// Edge cases with spaces
+		{"", ""},
+		{" ", ""},                        // Only spaces should return empty
+		{"  01/01/2025  ", "2025/01/01"}, // Should trim and convert
+		{" 01/01/2025", "2025/01/01"},    // Should trim and convert
+		{"01/01/2025 ", "2025/01/01"},    // Should trim and convert
+		{"  25/12/2024  ", "2024/12/25"}, // Should trim and convert
+
+		// Invalid formats (should return original)
+		{"invalid", "invalid"},
+		{"2025/01/01", "2025/01/01"}, // Wrong format
+		{"01-01-2025", "01-01-2025"}, // Wrong separator
+		{"1/1/2025", "1/1/2025"},     // Single digits
+		{"32/01/2025", "32/01/2025"}, // Invalid day
+		{"01/13/2025", "01/13/2025"}, // Invalid month
+		{"01/01/25", "01/01/25"},     // Two-digit year
+		{"01/01", "01/01"},           // Missing year
+		{"01/01/", "01/01/"},         // Missing year
+		{"/01/2025", "/01/2025"},     // Missing day
+		{"01//2025", "01//2025"},     // Missing month
+	}
+
+	allPassed := true
+	for i, tc := range testCases {
+		result := convertDateFormat(tc.input)
+		if result != tc.expected {
+			fmt.Printf("❌ Test %d FAILED: convertDateFormat('%s') = '%s', expected '%s'\n",
+				i+1, tc.input, result, tc.expected)
+			allPassed = false
+		} else {
+			fmt.Printf("✅ Test %d PASSED: '%s' -> '%s'\n", i+1, tc.input, result)
+		}
+	}
+
+	fmt.Println(strings.Repeat("=", 40))
+	if allPassed {
+		fmt.Println("🎉 All convertDateFormat tests PASSED!")
+	} else {
+		fmt.Println("❌ Some convertDateFormat tests FAILED!")
+	}
+}
+
 func test_all() {
 	testConvertTimeStringToMinutes()
 	testConvertMinutesToTimeString()
+	testFormatTimeFromHMS()
+	testConvertDateFormat()
 
 	// Example usage:
 	fmt.Println("\nExample conversions:")
@@ -225,5 +407,13 @@ func test_all() {
 		timeStr := convertMinutesToTimeString(minutes)
 		fmt.Printf("%d minutes = '%s'\n", minutes, timeStr)
 	}
+
+	// Convert time format
+	timeResult := formatTimeFromHMS("8:30:45")
+	fmt.Printf("'8:30:45' -> '%s'\n", timeResult)
+
+	// Convert date format
+	dateResult := convertDateFormat("25/12/2024")
+	fmt.Printf("'25/12/2024' -> '%s'\n", dateResult)
 
 }

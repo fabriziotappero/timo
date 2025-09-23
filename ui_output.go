@@ -60,14 +60,57 @@ func BuildSummary() string {
 	}
 
 	var result strings.Builder
-	result.WriteString("================ Summary =================\n")
+	result.WriteString("------------------------------ Summary ------------------------------\n")
 	result.WriteString(fmt.Sprintf(" Last Update:           %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
 	result.WriteString(fmt.Sprintf(" Reporting Date:        %s\n", timenet_data.Summary.ReportingDate))
 	result.WriteString(fmt.Sprintf(" Required Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Timenet Clocked Time:  %s\n", timenet_data.Summary.WorkedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Kimai Clocked Time:    %s\n", kimai_data.Summary.WorkedHours))
-	result.WriteString(fmt.Sprintf(" Yearly Overtime:       %s\n", timenet_data.Summary.AccumuletedHoursInYear))
-	result.WriteString("==========================================\n")
+	result.WriteString(fmt.Sprintf(" Yearly Overtime:       %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
+	//result.WriteString("==========================================\n\n")
+
+	// lets plot here a table with daily data
+	result.WriteString(" Date          | Expected | Timenet | Kimai | Difference | Overtime\n")
+	result.WriteString("---------------------------------------------------------------------\n")
+	for _, day := range timenet_data.MonthlyData {
+		var dayType string
+		switch {
+		case day.IsHoliday:
+			dayType = "🎉"
+		case day.IsWorkingDay:
+			dayType = "👷🏽‍♀️"
+		case day.IsVacation:
+			dayType = "🏝️"
+		default:
+			dayType = "💃"
+		}
+
+		// search for timenet_data.MonthlyData.Date inside kimai_data.MonthlyData.Date and
+		// if the data matches, pick kimai_data.MonthlyData.WorkedHours and store it
+		var kimaiWorkedHours string = ""
+		for _, kimaiDay := range kimai_data.MonthlyData {
+			if kimaiDay.Date == day.Date {
+				kimaiWorkedHours = kimaiDay.WorkedHours
+				break
+			}
+		}
+
+		var diff string = ""
+		result1, err := convertTimeStringToMinutes(day.WorkedHours)
+		if err == nil {
+			result2, err := convertTimeStringToMinutes(kimaiWorkedHours)
+			if err == nil {
+				diff_num := result1 - result2
+				diff = convertMinutesToTimeString(diff_num)
+			}
+		}
+
+		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-5s | %-10s | %s\n",
+			day.Date, dayType, day.ExpectedHours, day.WorkedHours, kimaiWorkedHours, diff, day.Overtime,
+		))
+	}
+	result.WriteString("---------------------------------------------------------------------\n")
+
 	return result.String()
 }
 

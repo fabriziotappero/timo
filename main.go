@@ -19,7 +19,9 @@ func main() {
 			break
 		}
 		if arg == "--test" {
-			testTimenetParsing()
+			//testTimenetParsing()
+			//testKimaiParsing()
+			test_all()
 			return
 		}
 	}
@@ -50,7 +52,7 @@ func fetchTimenet(password string) error {
 	cleanHTML(&_html)
 
 	// DEBUG
-	if true {
+	if false {
 		_html = gohtml.Format(_html)
 		os.WriteFile("dump.html", []byte(_html), 0644)
 	}
@@ -76,8 +78,11 @@ func fetchKimai(id string, password string) error {
 		return err
 	}
 
-	// dump HTML to file for debugging
-	// os.WriteFile("dump.html", []byte(_html), 0644)
+	// DEBUG
+	if true {
+		_html = gohtml.Format(_html)
+		os.WriteFile("dump.html", []byte(_html), 0644)
+	}
 
 	// PARSE HTML AND SAVE IN LOCAL JSON
 	slog.Info("Starting Kimai data parsing")
