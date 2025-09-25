@@ -41,6 +41,9 @@ check for new version availability.
 While developing it is quite useful to compile and run using the command `go run . --debug`. This
 will generate more detailed log information. Log can be monitored using `tail -f /tmp/timo_debug.log`.
 
+Github is used to store the timo repository. A new build is triggered by Gihub Actions when
+the lastest master is tag with *"release"*.
+
 ## Some Help With Golang
 
 https://go.dev/doc/effective_go
