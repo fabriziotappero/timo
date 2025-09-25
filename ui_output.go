@@ -76,6 +76,7 @@ func BuildSummary() string {
 	var monthly_diff_min int
 
 	for _, day := range timenet_data.MonthlyData {
+
 		var dayType string
 		switch {
 		case day.IsHoliday:
@@ -89,15 +90,22 @@ func BuildSummary() string {
 		}
 
 		// search for timenet_data.MonthlyData.Date inside kimai_data.MonthlyData.Date and
-		// if the data matches, pick kimai_data.MonthlyData.WorkedHours and store it
+		// if the data match, pick kimai_data.MonthlyData.WorkedHours and add them up
 		var kimaiWorkedHours string = ""
+		var kimaiWorkedHours_int int = 0
 		for _, kimaiDay := range kimai_data.MonthlyData {
 			if kimaiDay.Date == day.Date {
-				kimaiWorkedHours = kimaiDay.WorkedHours
-				break
+				// there might be more than one entry for the same day, so we sum them up
+				minutes, err := convertTimeStringToMinutes(kimaiDay.WorkedHours)
+				if err == nil {
+					kimaiWorkedHours_int += minutes
+				}
 			}
 		}
+		kimaiWorkedHours = convertMinutesToTimeString(kimaiWorkedHours_int)
 
+		// work out the difference between timenet and kimai logged hours per each
+		// day as well as the monthly total difference
 		var diff string = ""
 		result1, err := convertTimeStringToMinutes(day.WorkedHours)
 		if err == nil {
@@ -114,6 +122,8 @@ func BuildSummary() string {
 		))
 	}
 	result.WriteString("---------------------------------------------------------\n")
+
+	// total monthly difference
 	monthly_diff := convertMinutesToTimeString(monthly_diff_min)
 	result.WriteString(fmt.Sprintf("%65s\n", redStyle.Render(monthly_diff)))
 
