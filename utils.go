@@ -87,6 +87,8 @@ func convertMinutesToTimeString(totalMinutes int) string {
 	// Add negative sign if needed
 	if isNegative {
 		result = "-" + result
+	} else {
+		result = "+" + result
 	}
 
 	return result

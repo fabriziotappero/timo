@@ -60,7 +60,7 @@ func BuildSummary() string {
 	}
 
 	var result strings.Builder
-	result.WriteString("------------------------------ Summary ------------------------------\n")
+	result.WriteString("------------------------ Summary ------------------------\n")
 	result.WriteString(fmt.Sprintf(" Last Update:           %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
 	result.WriteString(fmt.Sprintf(" Reporting Date:        %s\n", timenet_data.Summary.ReportingDate))
 	result.WriteString(fmt.Sprintf(" Required Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
@@ -70,8 +70,11 @@ func BuildSummary() string {
 	//result.WriteString("==========================================\n\n")
 
 	// lets plot here a table with daily data
-	result.WriteString(" Date          | Expected | Timenet | Kimai | Difference | Overtime\n")
-	result.WriteString("---------------------------------------------------------------------\n")
+	result.WriteString(" Date          | Overtime | Timenet | Kimai   | Diff  \n")
+	result.WriteString("---------------------------------------------------------\n")
+
+	var monthly_diff_min int
+
 	for _, day := range timenet_data.MonthlyData {
 		var dayType string
 		switch {
@@ -100,16 +103,19 @@ func BuildSummary() string {
 		if err == nil {
 			result2, err := convertTimeStringToMinutes(kimaiWorkedHours)
 			if err == nil {
-				diff_num := result1 - result2
+				diff_num := result2 - result1
 				diff = convertMinutesToTimeString(diff_num)
+				monthly_diff_min += diff_num
 			}
 		}
 
-		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-5s | %-10s | %s\n",
-			day.Date, dayType, day.ExpectedHours, day.WorkedHours, kimaiWorkedHours, diff, day.Overtime,
+		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s\n",
+			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedHours, diff,
 		))
 	}
-	result.WriteString("---------------------------------------------------------------------\n")
+	result.WriteString("---------------------------------------------------------\n")
+	monthly_diff := convertMinutesToTimeString(monthly_diff_min)
+	result.WriteString(fmt.Sprintf("%65s\n", redStyle.Render(monthly_diff)))
 
 	return result.String()
 }
