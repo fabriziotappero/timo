@@ -61,12 +61,12 @@ func BuildSummary() string {
 
 	var result strings.Builder
 	result.WriteString("------------------------ Summary ------------------------\n")
-	result.WriteString(fmt.Sprintf(" Last Update:           %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
-	result.WriteString(fmt.Sprintf(" Reporting Date:        %s\n", timenet_data.Summary.ReportingDate))
-	result.WriteString(fmt.Sprintf(" Required Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
-	result.WriteString(fmt.Sprintf(" Timenet Clocked Time:  %s\n", timenet_data.Summary.WorkedHoursInMonth))
-	result.WriteString(fmt.Sprintf(" Kimai Clocked Time:    %s\n", kimai_data.Summary.WorkedHours))
-	result.WriteString(fmt.Sprintf(" Yearly Overtime:       %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
+	result.WriteString(fmt.Sprintf(" Last Update:                   %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
+	result.WriteString(fmt.Sprintf(" Reporting Date:                %s\n", timenet_data.Summary.ReportingDate))
+	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
+	result.WriteString(fmt.Sprintf(" Timenet Monthly Clocked Hours: %s\n", timenet_data.Summary.WorkedHoursInMonth))
+	result.WriteString(fmt.Sprintf(" Kimai Yearly Clocked Hours:    %s\n", kimai_data.Summary.WorkedHours))
+	result.WriteString(fmt.Sprintf(" Yearly Overtime:               %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
 	//result.WriteString("==========================================\n\n")
 
 	// lets plot here a table with daily data
