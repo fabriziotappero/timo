@@ -95,7 +95,7 @@ func timenetParse(htmlContent *string) error {
 
 	// extract daily data
 	monthlyRows := doc.Find("table.table-checks tbody tr")
-	slog.Info("Found and extracting daily rows: ", "count", monthlyRows.Length())
+	slog.Info("Timenet, found and extracting daily rows", "count", monthlyRows.Length())
 
 	monthlyRows.Each(func(i int, row *goquery.Selection) {
 		monthlyData := TimenetMonthlyData{}
