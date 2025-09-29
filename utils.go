@@ -63,7 +63,7 @@ func convertTimeStringToMinutes(timeStr string) (int, error) {
 // convertMinutesToTimeString converts total minutes to a time string like "1h 13m" or "-2h 30m"
 func convertMinutesToTimeString(totalMinutes int) string {
 	if totalMinutes == 0 {
-		return "0m"
+		return ""
 	}
 
 	// Handle negative values

@@ -102,7 +102,8 @@ func BuildSummary() string {
 				}
 			}
 		}
-		kimaiWorkedHours = convertMinutesToTimeString(kimaiWorkedHours_int)
+		// trim away leading + sign if the number is positive
+		kimaiWorkedHours = strings.TrimPrefix(convertMinutesToTimeString(kimaiWorkedHours_int), "+")
 
 		// work out the difference between timenet and kimai logged hours per each
 		// day as well as the monthly total difference
@@ -125,7 +126,7 @@ func BuildSummary() string {
 
 	// total monthly difference
 	monthly_diff := convertMinutesToTimeString(monthly_diff_min)
-	result.WriteString(fmt.Sprintf("%65s\n", redStyle.Render(monthly_diff)))
+	result.WriteString(fmt.Sprintf("%64s\n", redStyle.Render(monthly_diff)))
 
 	return result.String()
 }
