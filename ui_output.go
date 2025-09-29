@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +15,7 @@ import (
 
 var redStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 var boldStyle = lipgloss.NewStyle().Bold(true)
+var yellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true)
 
 // readLatestJSON finds and reads the most recent JSON file with the given prefix
 func readLatestJSON[T any](prefix string) (*T, error) {
@@ -85,11 +87,11 @@ func BuildSummary() string {
 		case day.IsHoliday:
 			dayType = "🎉"
 		case day.IsWorkingDay:
-			dayType = "👷🏽‍♀️"
+			dayType = "💼" //🔨🔧
 		case day.IsVacation:
 			dayType = "🏝️"
 		default:
-			dayType = "💃"
+			dayType = "🌙" //💃🌙😎
 		}
 
 		// search for timenet_data.MonthlyData.Date inside kimai_data.MonthlyData.Date and
@@ -134,9 +136,16 @@ func BuildSummary() string {
 			monthly_diff += diff_num
 		}
 
-		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s\n",
-			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedHours, diff,
+		// using warning add this icon ⚠ if the absolute difference is > 1.5 hour
+		var warning string = " "
+		if diffMinutes, err := convertTimeStringToMinutes(diff); err == nil && math.Abs(float64(diffMinutes)) > 90 {
+			warning = yellowStyle.Render("⚠")
+		}
+
+		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s |%s%-7s\n",
+			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedHours, warning, diff,
 		))
+
 	}
 	result.WriteString("---------------------------------------------------------\n")
 
