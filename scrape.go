@@ -45,7 +45,7 @@ func calculateMonthsDifference(currentDate, targetDate string) int {
 }
 
 // set the date in the Kimai date picker for both from and to date
-func setDatePickerFilter(dateStr string, fieldSelector string) chromedp.Action {
+func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Action {
 	return chromedp.ActionFunc(func(ctx context.Context) error {
 		// Validate fieldSelector
 		if fieldSelector != "#ts_in" && fieldSelector != "#ts_out" {
@@ -57,16 +57,16 @@ func setDatePickerFilter(dateStr string, fieldSelector string) chromedp.Action {
 		chromedp.Text(fieldSelector, &currentDateText, chromedp.ByQuery).Do(ctx)
 
 		slog.Info("Current date picker shows", "date", currentDateText, "field", fieldSelector)
-		slog.Info("We want to set", "date", dateStr, "field", fieldSelector)
+		slog.Info("We want to set", "date", dateTarget, "field", fieldSelector)
 
 		// Check if we're already at the target date
-		if currentDateText == dateStr {
+		if currentDateText == dateTarget {
 			slog.Info("Already at target date, no navigation needed")
 			return nil
 		}
 
 		// Calculate how many months to navigate
-		monthsDiff := calculateMonthsDifference(currentDateText, dateStr)
+		monthsDiff := calculateMonthsDifference(currentDateText, dateTarget)
 
 		// Open the date picker
 		chromedp.WaitVisible(fieldSelector, chromedp.ByQuery).Do(ctx)
@@ -87,12 +87,18 @@ func setDatePickerFilter(dateStr string, fieldSelector string) chromedp.Action {
 				chromedp.Click(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
 				chromedp.Sleep(500 * time.Millisecond).Do(ctx)
 			}
+		} else {
+			slog.Info("No month navigation is needed")
 		}
+		chromedp.Sleep(1 * time.Second).Do(ctx)
 
-		// Extract day from dateStr and click on it using the HTML select
+		// Extract day from dateTarget and click on it using the HTML select
+		slog.Info("Setting day in date picker", "date", dateTarget)
 		var targetDay, targetMonth, targetYear int
-		fmt.Sscanf(dateStr, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
+		fmt.Sscanf(dateTarget, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
 		daySelector := fmt.Sprintf(`//a[text()="%d"]`, targetDay)
+		slog.Info("Current target date", "date", dateTarget)
+		slog.Info("Clicking on day in date picker", "day", targetDay)
 		chromedp.Click(daySelector, chromedp.BySearch).Do(ctx)
 		chromedp.Sleep(2 * time.Second).Do(ctx)
 
@@ -256,7 +262,7 @@ func scrapeKimai(id string, password string) (string, error) {
 		chromedp.WaitVisible(`#dates`, chromedp.ByQuery),
 		chromedp.Sleep(2*time.Second),
 
-		// store current view filter
+		// store locally current view filter
 		chromedp.Text(`#ts_in`, &viewFilterStartDate, chromedp.ByQuery),
 		chromedp.Text(`#ts_out`, &viewFilterEndDate, chromedp.ByQuery),
 
