@@ -73,7 +73,10 @@ func BuildSummary() string {
 	result.WriteString(" Date          | Overtime | Timenet | Kimai   | Diff  \n")
 	result.WriteString("---------------------------------------------------------\n")
 
-	var monthly_diff_min int
+	var monthly_diff int = 0
+	var monthly_overtime int = 0
+	var monthly_timenet int = 0
+	var monthly_kimai int = 0
 
 	for _, day := range timenet_data.MonthlyData {
 
@@ -106,16 +109,29 @@ func BuildSummary() string {
 		kimaiWorkedHours = strings.TrimPrefix(convertMinutesToTimeString(kimaiWorkedHours_int), "+")
 
 		// work out the difference between timenet and kimai logged hours per each
-		// day as well as the monthly total difference
+		// day as well as accumulate monthly totals for each column
 		var diff string = ""
-		result1, err := convertTimeStringToMinutes(day.WorkedHours)
+
+		// Add to overtime total
+		overtime_minutes, err := convertTimeStringToMinutes(day.Overtime)
 		if err == nil {
-			result2, err := convertTimeStringToMinutes(kimaiWorkedHours)
-			if err == nil {
-				diff_num := result2 - result1
-				diff = convertMinutesToTimeString(diff_num)
-				monthly_diff_min += diff_num
-			}
+			monthly_overtime += overtime_minutes
+		}
+
+		// Add to timenet total
+		timenet_minutes, err := convertTimeStringToMinutes(day.WorkedHours)
+		if err == nil {
+			monthly_timenet += timenet_minutes
+		}
+
+		// Add to kimai total
+		monthly_kimai += kimaiWorkedHours_int
+
+		// Calculate and add to diff total
+		if err == nil {
+			diff_num := kimaiWorkedHours_int - timenet_minutes
+			diff = convertMinutesToTimeString(diff_num)
+			monthly_diff += diff_num
 		}
 
 		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s\n",
@@ -124,9 +140,15 @@ func BuildSummary() string {
 	}
 	result.WriteString("---------------------------------------------------------\n")
 
-	// total monthly difference
-	monthly_diff := convertMinutesToTimeString(monthly_diff_min)
-	result.WriteString(fmt.Sprintf("%64s\n", redStyle.Render(monthly_diff)))
+	// Display monthly totals for each column
+	result.WriteString(
+		fmt.Sprintf(" %-10s %s   %-8s    %-7s  %-7s   %-7s\n",
+			"", "🎲", // Empty date and summary emoji
+			redStyle.Render(convertMinutesToTimeString(monthly_overtime)),
+			redStyle.Render(strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+")),
+			redStyle.Render(strings.TrimPrefix(convertMinutesToTimeString(monthly_kimai), "+")),
+			redStyle.Render(convertMinutesToTimeString(monthly_diff)),
+		))
 
 	return result.String()
 }

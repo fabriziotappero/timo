@@ -148,7 +148,9 @@ func newChromeContext(extraOpts ...chromedp.ExecAllocatorOption) (context.Contex
 // scrape timenet website content for the current month
 func scrapeTimenet(password string) (string, error) {
 
-	ctx, cancel := newChromeContext()
+	ctx, cancel := newChromeContext(
+	//chromedp.Flag("headless", false),
+	)
 	defer cancel()
 
 	var responseHTML string
