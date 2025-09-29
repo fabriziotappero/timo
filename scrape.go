@@ -100,15 +100,24 @@ func setDatePickerFilter(dateStr string, fieldSelector string) chromedp.Action {
 	})
 }
 
-// find any Chromium/Chrome in the OS PATH, search as well in the user ~/.config dir
-// if nothing is found, download and install a local copy of Chromium in
+// find any Chromium/Chrome in the OS PATH, common locations, or user config dir
+// if nothing is found, download and install a local copy of Chromium
 func setupScraper() {
-	if !IsChromiumAvailable() {
-		chromiumPath, _ = GetCustomChromiumToPath()
-		if chromiumPath == "" {
-			fmt.Println("Setting up some external tools...")
+	// First try to find Chrome/Chromium in PATH or oher common locations
+	chromiumPath = FindChromiumExecutable()
+
+	if chromiumPath == "" {
+		// Try to get custom chromium from user config directory
+		customPath, err := GetCustomChromiumToPath()
+		if err == nil {
+			chromiumPath = customPath
+		} else {
+			// Last resort: download and install chromium
+			fmt.Println("Setting up external tools...")
 			DownloadChromium()
 			InstallCustomChromium()
+			// Try to get the path again after installation
+			chromiumPath, _ = GetCustomChromiumToPath()
 		}
 	}
 }

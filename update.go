@@ -127,17 +127,42 @@ func NewVersionAvailable() (bool, error) {
 	return false, nil
 }
 
-// checks if 'chrome' or 'chromium' is available in PATH
+// checks if 'chrome' or 'chromium' is available in PATH or in common installation directories
 func IsChromiumAvailable() bool {
+	execPath := FindChromiumExecutable()
+	return execPath != ""
+}
+
+// finds and returns the full path to Chrome/Chromium executable, or empty string if not found
+func FindChromiumExecutable() string {
+	// First check PATH
 	candidates := []string{"chrome", "chromium", "chrome.exe", "chromium.exe", "google-chrome", "google-chrome-stable"}
 	for _, name := range candidates {
 		if path, err := exec.LookPath(name); err == nil {
-			slog.Info("Found Chrome/Chromium browser executable", "path", path)
-			return false
+			slog.Info("Found Chrome/Chromium browser executable in PATH", "path", path)
+			return path
 		}
 	}
-	slog.Warn("No Chrome/Chromium browser found in PATH")
-	return false
+
+	// Then check common installation locations on Windows
+	if runtime.GOOS == "windows" {
+		commonExecutables := []string{
+			"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+			"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+			"C:\\Program Files\\Chromium\\Application\\chrome.exe",
+			"C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe",
+		}
+
+		for _, execPath := range commonExecutables {
+			if _, err := os.Stat(execPath); err == nil {
+				slog.Info("Found Chrome/Chromium browser executable in common location", "path", execPath)
+				return execPath
+			}
+		}
+	}
+
+	slog.Warn("No Chrome/Chromium browser found in PATH or common locations")
+	return ""
 }
 
 // downloads a portable Chromium ZIP to the OS temp folder (Windows/Linux)
