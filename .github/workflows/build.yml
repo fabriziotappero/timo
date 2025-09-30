@@ -23,12 +23,24 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Run build.sh
         run: ./build.sh
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: timo-builds
+          path: |
+            build/timo
+            build/timo.exe
 
   release:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
     steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: timo-builds
+          path: build
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
