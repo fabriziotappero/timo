@@ -50,6 +50,8 @@ func readLatestJSON[T any](prefix string) (*T, error) {
 	return &data, nil
 }
 
+// returns a summary string combining data from both Timenet and Kimai JSON files
+// to be directed to the main content area of the UI
 func BuildSummary() string {
 	timenet_data, err := readLatestJSON[TimenetData]("timenet_data_")
 	if err != nil {
@@ -151,11 +153,11 @@ func BuildSummary() string {
 
 	// Display monthly totals for each column
 	result.WriteString(
-		fmt.Sprintf(" %-10s %s   %-8s    %-7s  %-7s   %-7s\n",
-			"", "🎲", // Empty date and summary emoji
-			redStyle.Render(convertMinutesToTimeString(monthly_overtime)),
-			redStyle.Render(strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+")),
-			redStyle.Render(strings.TrimPrefix(convertMinutesToTimeString(monthly_kimai), "+")),
+		fmt.Sprintf(" %-10s %s   %-8s   %-7s   %-7s   %-7s\n",
+			"", "🎲",
+			convertMinutesToTimeString(monthly_overtime),
+			strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+"),
+			strings.TrimPrefix(convertMinutesToTimeString(monthly_kimai), "+"),
 			redStyle.Render(convertMinutesToTimeString(monthly_diff)),
 		))
 
