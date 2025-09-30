@@ -1,6 +1,7 @@
 *.log
 build/
 dump.html
+dump.json
 
 *.exe
 *.exe~
