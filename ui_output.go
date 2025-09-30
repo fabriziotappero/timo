@@ -15,7 +15,7 @@ import (
 
 var redStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 var boldStyle = lipgloss.NewStyle().Bold(true)
-var yellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true)
+var yellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
 
 // readLatestJSON finds and reads the most recent JSON file with the given prefix
 func readLatestJSON[T any](prefix string) (*T, error) {
@@ -70,7 +70,7 @@ func BuildSummary() string {
 	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Timenet Monthly Clocked Hours: %s\n", timenet_data.Summary.WorkedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Kimai Yearly Clocked Hours:    %s\n", kimai_data.Summary.WorkedHours))
-	result.WriteString(fmt.Sprintf(" Yearly Overtime:               %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
+	result.WriteString(fmt.Sprintf(" This Year Overtime:            %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
 	//result.WriteString("==========================================\n\n")
 
 	// lets plot here a table with daily data
@@ -89,7 +89,7 @@ func BuildSummary() string {
 		case day.IsHoliday:
 			dayType = "🎉"
 		case day.IsWorkingDay:
-			dayType = "💼" //🔨🔧
+			dayType = "🧑‍💼" //🔨🔧💼🧰
 		case day.IsVacation:
 			dayType = "🏝️"
 		default:
@@ -138,14 +138,14 @@ func BuildSummary() string {
 			monthly_diff += diff_num
 		}
 
-		// using warning add this icon ⚠ if the absolute difference is > 1.5 hour
+		// add warning icon if absolute difference is > 60min
 		var warning string = " "
-		if diffMinutes, err := convertTimeStringToMinutes(diff); err == nil && math.Abs(float64(diffMinutes)) > 90 {
-			warning = yellowStyle.Render("⚠")
+		if diffMinutes, err := convertTimeStringToMinutes(diff); err == nil && math.Abs(float64(diffMinutes)) > 60 {
+			warning = yellowStyle.Render("⚡")
 		}
 
-		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s |%s%-7s\n",
-			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedHours, warning, diff,
+		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s %s\n",
+			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedHours, diff, warning,
 		))
 
 	}
