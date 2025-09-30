@@ -8,39 +8,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Only run if manually triggered (button) or on push to main
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Make build.sh executable
-      run: chmod +x build.sh
-      
-    - name: Extract version from build.sh
-      id: extract_version
-      run: |
-        VERSION=$(grep '^VERSION=' build.sh | cut -d'"' -f2)
-        echo "Extracted version: $VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "::set-output name=version::$VERSION"
-        
-    - name: Run build.sh
-      run: ./build.sh
-      
+      - uses: actions/checkout@v4
+      - name: Make build.sh executable
+        run: chmod +x build.sh
+      - name: Extract version from build.sh
+        id: extract_version
+        run: |
+          VERSION=$(grep '^VERSION=' build.sh | cut -d'"' -f2)
+          echo "Extracted version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Run build.sh
+        run: ./build.sh
+
   release:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
     steps:
-    - name: Create Release
-      id: create_release
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ needs.build.outputs.version }}
-        name: Release v${{ needs.build.outputs.version }}
-        draft: false
-        prerelease: false
-        files: |
-          build/timo
-          build/timo.exe
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: Release v${{ needs.build.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            build/timo
+            build/timo.exe
