@@ -131,11 +131,11 @@ func BuildSummary() string {
 		// Add to kimai total
 		monthly_kimai += kimaiWorkedHours_int
 
-		// Calculate and add to diff total
+		// Calculate diff and accumulate to monthly_diff
 		if err == nil {
 			diff_num := kimaiWorkedHours_int - timenet_minutes
-			diff = convertMinutesToTimeString(diff_num)
 			monthly_diff += diff_num
+			diff = convertMinutesToTimeString(diff_num)
 		}
 
 		// add warning icon if absolute difference is > 60min

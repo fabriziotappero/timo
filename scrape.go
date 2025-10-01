@@ -68,24 +68,44 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		// Calculate how many months to navigate
 		monthsDiff := calculateMonthsDifference(currentDateText, dateTarget)
 
-		// Open the date picker
-		chromedp.WaitVisible(fieldSelector, chromedp.ByQuery).Do(ctx)
-		chromedp.Click(fieldSelector, chromedp.ByQuery).Do(ctx)
+		// Open the date picker by evaluating JS on the hidden input
 		chromedp.Sleep(2 * time.Second).Do(ctx)
-		chromedp.WaitVisible(`#ui-datepicker-div`, chromedp.ByQuery).Do(ctx)
+		chromedp.WaitVisible(fieldSelector, chromedp.ByQuery).Do(ctx)
+		slog.Info("DEBUG: Triggering datepicker via JS on hidden input")
+		var inputSelector string
+		if fieldSelector == "#ts_in" {
+			inputSelector = "#pick_in"
+		} else if fieldSelector == "#ts_out" {
+			inputSelector = "#pick_out"
+		} else {
+			return fmt.Errorf("invalid fieldSelector '%s': must be '#ts_in' or '#ts_out'", fieldSelector)
+		}
+		errEval := chromedp.EvaluateAsDevTools(fmt.Sprintf("$('#%s').datepicker('show')", inputSelector[1:]), nil).Do(ctx)
+		if errEval != nil {
+			slog.Error("DEBUG: Failed to trigger datepicker via JS", "error", errEval)
+		}
+
+		// let's wait a bit for the date picker to be visible
+		chromedp.Sleep(2 * time.Second).Do(ctx)
+		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
 
 		// Click prev/next based on calculated difference
+		slog.Info("Trying to set MONTH in date picker moving of", "monthsDiff", monthsDiff)
 		if monthsDiff > 0 {
 			// Go forwards (next)
 			for i := 0; i < monthsDiff; i++ {
+				chromedp.WaitVisible(`.ui-datepicker-next`, chromedp.ByQuery).Do(ctx)
 				chromedp.Click(`.ui-datepicker-next`, chromedp.ByQuery).Do(ctx)
-				chromedp.Sleep(500 * time.Millisecond).Do(ctx)
+				chromedp.Sleep(1 * time.Millisecond).Do(ctx)
+				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
 			}
 		} else if monthsDiff < 0 {
 			// Go backwards (prev)
 			for i := 0; i < -monthsDiff; i++ {
+				chromedp.WaitVisible(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
 				chromedp.Click(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
-				chromedp.Sleep(500 * time.Millisecond).Do(ctx)
+				chromedp.Sleep(1 * time.Millisecond).Do(ctx)
+				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
 			}
 		} else {
 			slog.Info("No month navigation is needed")
@@ -93,12 +113,13 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		chromedp.Sleep(1 * time.Second).Do(ctx)
 
 		// Extract day from dateTarget and click on it using the HTML select
-		slog.Info("Setting day in date picker", "date", dateTarget)
+		slog.Info("Trying to set DAY in date picker", "date", dateTarget)
+
+		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
 		var targetDay, targetMonth, targetYear int
 		fmt.Sscanf(dateTarget, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
 		daySelector := fmt.Sprintf(`//a[text()="%d"]`, targetDay)
-		slog.Info("Current target date", "date", dateTarget)
-		slog.Info("Clicking on day in date picker", "day", targetDay)
+		slog.Info("Trying to click on day in date picker", "day", targetDay)
 		chromedp.Click(daySelector, chromedp.BySearch).Do(ctx)
 		chromedp.Sleep(2 * time.Second).Do(ctx)
 
