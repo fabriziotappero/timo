@@ -21,7 +21,7 @@ func main() {
 		if arg == "--test" {
 			//testTimenetParsing()
 			//testKimaiParsing()
-			test_all()
+			test_tools_all()
 			return
 		}
 	}

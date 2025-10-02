@@ -391,7 +391,7 @@ func testConvertDateFormat() {
 	}
 }
 
-func test_all() {
+func test_tools_all() {
 	testConvertTimeStringToMinutes()
 	testConvertMinutesToTimeString()
 	testFormatTimeFromHMS()

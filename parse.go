@@ -16,8 +16,8 @@ import (
 
 // KIMAI DATA STRUCTURE
 type KimaiData struct {
-	PresentDate string             `json:"present_date"`
-	PresentTime string             `json:"present_time"`
+	FetchDate   string             `json:"fetch_date"`
+	FetchTime   string             `json:"fetch_time"`
 	Summary     KimaiSummary       `json:"summary"`
 	MonthlyData []KimaiMonthlyData `json:"monthly_data"`
 }
@@ -25,17 +25,19 @@ type KimaiData struct {
 type KimaiSummary struct {
 	ReportingDateFrom string `json:"reporting_date_from"`
 	ReportingDateTo   string `json:"reporting_date_to"`
-	WorkedHours       string `json:"worked_hours"`
+	LoggedinUser      string `json:"loggedin_user"`
+	WorkedTime        string `json:"worked_time"`
 }
 
 type KimaiMonthlyData struct {
-	Date        string `json:"date"`
-	In          string `json:"in"`
-	Out         string `json:"out"`
-	WorkedHours string `json:"worked_hours"`
-	Customer    string `json:"customer"`
-	Project     string `json:"project"`
-	Activity    string `json:"activity"`
+	Date       string `json:"date"`
+	In         string `json:"in"`
+	Out        string `json:"out"`
+	WorkedTime string `json:"worked_time"`
+	Customer   string `json:"customer"`
+	Project    string `json:"project"`
+	Activity   string `json:"activity"`
+	Username   string `json:"username"`
 }
 
 // TIMENET DATA STRUCTURE
@@ -213,8 +215,8 @@ func kimaiParse(htmlContent *string) error {
 	}
 
 	data := KimaiData{
-		PresentDate: time.Now().Format("2006/01/02"),
-		PresentTime: time.Now().Format("15:04"),
+		FetchDate: time.Now().Format("2006/01/02"),
+		FetchTime: time.Now().Format("15:04"),
 	}
 
 	// NewDocumentFromReader takes a io.Reader not a string
@@ -223,11 +225,13 @@ func kimaiParse(htmlContent *string) error {
 		return err
 	}
 
+	data.Summary.LoggedinUser = strings.TrimSpace(doc.Find("#top #menu b").First().Text())
+
 	// Extract summary data
 	// TODO these dates are not the right format FIXIT
 	data.Summary.ReportingDateFrom = doc.Find("#pick_in").AttrOr("value", "")
 	data.Summary.ReportingDateTo = doc.Find("#pick_out").AttrOr("value", "")
-	data.Summary.WorkedHours = formatTimeFromHMS(strings.TrimSpace(doc.Find("#display_total").Text()))
+	data.Summary.WorkedTime = formatTimeFromHMS(strings.TrimSpace(doc.Find("#display_total").Text()))
 
 	// Extract monthly data from timesheet entries
 	monthlyRows := doc.Find("#timeSheetTable table tbody tr")
@@ -244,9 +248,9 @@ func kimaiParse(htmlContent *string) error {
 		monthlyData.In = formatTimeFromHMS(strings.TrimSpace(row.Find("td.from").Text()))
 		monthlyData.Out = formatTimeFromHMS(strings.TrimSpace(row.Find("td.to").Text()))
 
-		// Extract worked hours (format H:MM:SS) and convert to Xh Ym format
-		workedHoursRaw := strings.TrimSpace(row.Find("td.time").Text())
-		monthlyData.WorkedHours = formatTimeFromHMS(workedHoursRaw)
+		// Extract worked time (format H:MM:SS) and convert to Xh Ym format
+		workedTimeRaw := strings.TrimSpace(row.Find("td.time").Text())
+		monthlyData.WorkedTime = formatTimeFromHMS(workedTimeRaw)
 
 		// Extract customer name
 		monthlyData.Customer = strings.TrimSpace(row.Find("td.customer").Text())
@@ -268,6 +272,9 @@ func kimaiParse(htmlContent *string) error {
 		} else {
 			monthlyData.Activity = strings.TrimSpace(activityCell.Text())
 		}
+
+		// extras username if available
+		monthlyData.Username = strings.TrimSpace(row.Find("td.username").Text())
 
 		// Only add if we have a valid date
 		if monthlyData.Date != "" && dateText != "" {

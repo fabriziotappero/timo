@@ -1,5 +1,5 @@
 
-Practical Golang utility to manage you logged hours using Timenet and Kimai.
+Practical Golang utility to manage you logged time using Timenet and Kimai.
 
 <div align="center"><img src="img/main.jpeg" alt="" width="550"></div>
 

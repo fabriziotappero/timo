@@ -69,7 +69,7 @@ func BuildSummary() string {
 	result.WriteString(fmt.Sprintf(" Reporting Date:                %s\n", timenet_data.Summary.ReportingDate))
 	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
 	result.WriteString(fmt.Sprintf(" Timenet Monthly Clocked Hours: %s\n", timenet_data.Summary.WorkedHoursInMonth))
-	result.WriteString(fmt.Sprintf(" Kimai Yearly Clocked Hours:    %s\n", kimai_data.Summary.WorkedHours))
+	result.WriteString(fmt.Sprintf(" Kimai Yearly Clocked Hours:    %s\n", kimai_data.Summary.WorkedTime))
 	result.WriteString(fmt.Sprintf(" This Year Overtime:            %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
 	//result.WriteString("==========================================\n\n")
 
@@ -81,9 +81,10 @@ func BuildSummary() string {
 	var monthly_overtime int = 0
 	var monthly_timenet int = 0
 	var monthly_kimai int = 0
-	var kimaiWorkedHours_int int = 0
 
 	for _, day := range timenet_data.MonthlyData {
+
+		var kimai_worked_time int = 0
 
 		var dayType string
 		switch {
@@ -98,55 +99,61 @@ func BuildSummary() string {
 		}
 
 		// search for timenet_data.MonthlyData.Date inside kimai_data.MonthlyData.Date and
-		// if the data match, pick kimai_data.MonthlyData.WorkedHours and add them up
+		// if the data match, pick kimai_data.MonthlyData.WorkedTime and add them up
 		for _, kimaiDay := range kimai_data.MonthlyData {
 			if kimaiDay.Date == day.Date {
+
+				//slog.Info("Working on date: " + kimaiDay.Date + " and " + day.Date)
+
+				kimai_minutes, err := convertTimeStringToMinutes(kimaiDay.WorkedTime)
+
+				//slog.Info(fmt.Sprintf("Worked Time: %d", kimai_minutes))
+
 				// there might be more than one entry for the same day, so we sum them up
-				minutes, err := convertTimeStringToMinutes(kimaiDay.WorkedHours)
 				if err == nil {
-					kimaiWorkedHours_int += minutes
+					// we add up only work time, therefore only time  for days where "project" is not "Break"
+					if strings.ToLower(kimaiDay.Project) != "break" {
+						kimai_worked_time += kimai_minutes
+					} else {
+						slog.Info("Skipping Break entry from Kimai data for date " + kimaiDay.Date)
+					}
 				}
 			}
 		}
 
-		// work out the difference between timenet and kimai logged hours per each
-		// day as well as accumulate monthly totals for each column
-		var diff string = ""
-
-		// Add to overtime total
-		overtime_minutes, err := convertTimeStringToMinutes(day.Overtime)
+		// accumulate overtime over the month
+		overtime, err := convertTimeStringToMinutes(day.Overtime)
 		if err == nil {
-			monthly_overtime += overtime_minutes
+			monthly_overtime += overtime
 		}
 
 		// Add to timenet total
-		timenet_minutes, err := convertTimeStringToMinutes(day.WorkedHours)
+		timenet_worked_time, err := convertTimeStringToMinutes(day.WorkedHours)
 		if err == nil {
-			monthly_timenet += timenet_minutes
+			monthly_timenet += timenet_worked_time
 		}
 
-		// Add to kimai total
-		monthly_kimai += kimaiWorkedHours_int
+		// accumulate kimai worked time
+		monthly_kimai += kimai_worked_time
 
 		// Calculate diff and accumulate to monthly_diff
 		// TODO. Currently flexitime hours are added too, need to exclude them
 		// for this we need to parse the
-		if err == nil {
-			diff_num := kimaiWorkedHours_int - timenet_minutes
-			monthly_diff += diff_num
-			diff = convertMinutesToTimeString(diff_num)
-		}
+		daily_diff := kimai_worked_time - timenet_worked_time
+		monthly_diff += daily_diff
 
-		// add warning icon if absolute difference is > 60min
-		var warning string = " "
-		if diffMinutes, err := convertTimeStringToMinutes(diff); err == nil && math.Abs(float64(diffMinutes)) > 60 {
+		// add warning icon if absolute difference is > 59min
+		warning := " "
+		if math.Abs(float64(daily_diff)) > 59 {
 			warning = yellowStyle.Render("⚡")
 		}
 
-		kimaiWorkedHours := strings.TrimPrefix(convertMinutesToTimeString(kimaiWorkedHours_int), "+")
+		// TODO is this correct when it is a Flexitime day?
+		kimaiWorkedTime := strings.TrimPrefix(convertMinutesToTimeString(kimai_worked_time), "+")
+		diff := convertMinutesToTimeString(daily_diff)
 
 		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s %s\n",
-			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedHours, diff, warning,
+			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedTime, diff, warning,
 		))
 
 	}
@@ -154,7 +161,7 @@ func BuildSummary() string {
 
 	// Display monthly totals for each column
 	result.WriteString(
-		fmt.Sprintf(" %-10s %s   %-8s   %-7s   %-7s   %-7s\n",
+		fmt.Sprintf(" %-10s %s  %-8s    %-7s   %-7s  %-7s\n",
 			"", "🎲",
 			convertMinutesToTimeString(monthly_overtime),
 			strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+"),
