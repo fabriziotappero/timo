@@ -69,13 +69,14 @@ func BuildSummary(whatMonth int) string {
 
 	var result strings.Builder
 	result.WriteString("------------------------ Summary ------------------------\n")
-	result.WriteString(fmt.Sprintf(" Last Remote Fetch:             %s %s\n", redStyle.Render(timenet_data.FetchDate), redStyle.Render(timenet_data.FetchTime)))
-	result.WriteString(fmt.Sprintf(" Reporting Year:                %s\n", timenet_data.Year))
-	result.WriteString(fmt.Sprintf(" Reporting Month:               %s\n", timenet_data.MonthlyData[whatMonth].Month))
-	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
-	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:  %s\n", timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth))
-	result.WriteString(fmt.Sprintf(" Kimai Yearly Worked Hours:     %s\n", kimai_data.Summary.WorkedTime))
-	result.WriteString(fmt.Sprintf(" This Year Overtime:            %s\n\n", timenet_data.OvertimeInYear))
+	result.WriteString(fmt.Sprintf(" Last Remote Fetch:                     %s %s\n", redStyle.Render(timenet_data.FetchDate), redStyle.Render(timenet_data.FetchTime)))
+	result.WriteString(fmt.Sprintf(" Reporting Year:                        %s\n", timenet_data.Year))
+	result.WriteString(fmt.Sprintf(" Reporting Month:                       %s\n", timenet_data.MonthlyData[whatMonth].Month))
+	result.WriteString(fmt.Sprintf(" Required Monthly Hours:                %s\n", timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:          %s\n", timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Kimai Yearly Worked Hours:             %s\n", kimai_data.Summary.WorkedTime))
+	result.WriteString(fmt.Sprintf(" This Year Overtime:                    %s\n\n", timenet_data.OvertimeInYear))
+	//result.WriteString(fmt.Sprintf(" This year Timenet/Kimai Discrepancy:   %s\n\n", "0h 0m"))
 
 	// lets plot here a table with daily data
 	result.WriteString(" Date          | Overtime | Timenet | Kimai   | Diff  \n")
@@ -115,8 +116,15 @@ func BuildSummary(whatMonth int) string {
 
 				// there might be more than one entry for the same day, so we sum them up
 				if err == nil {
-					// we add up only work time, therefore only time  for days where "project" is not "Break"
-					if strings.ToLower(kimaiDay.Project) != "break" {
+					// we add up only work time, therefore only time  for days where:
+					// "project" is not "Break" or
+					// Activity does not contain "vacation" or
+					// Activity does not contain "holiday" or
+					// Activity does not contain "free time"
+					if strings.ToLower(kimaiDay.Project) != "break" &&
+						!strings.Contains(strings.ToLower(kimaiDay.Activity), "vacation") &&
+						!strings.Contains(strings.ToLower(kimaiDay.Activity), "holiday") &&
+						!strings.Contains(strings.ToLower(kimaiDay.Activity), "free time") {
 						kimai_worked_time += kimai_minutes
 					} else {
 						slog.Info("Skipping Break entry from Kimai data for date " + kimaiDay.Date)
@@ -170,7 +178,7 @@ func BuildSummary(whatMonth int) string {
 			convertMinutesToTimeString(monthly_overtime),
 			strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+"),
 			strings.TrimPrefix(convertMinutesToTimeString(monthly_kimai), "+"),
-			redStyle.Render(convertMinutesToTimeString(monthly_diff)),
+			redStyle.Render(convertMinutesToTimeString(monthly_diff)+" (WTO)"),
 		))
 
 	return result.String()
