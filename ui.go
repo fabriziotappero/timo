@@ -46,8 +46,9 @@ type model struct {
 	kimaiID         string
 	kimaiPassword   string
 
-	spinner   spinner.Model
-	isLoading bool
+	spinner    spinner.Model
+	isLoading  bool
+	monthIndex int // tracks which month to display (0=current, 1=previous, etc.)
 }
 
 func newModel() model {
@@ -110,7 +111,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.success {
 			return m, func() tea.Msg {
 				time.Sleep(1 * time.Second) // Let the success message show briefly
-				summary := BuildSummary()
+				summary := BuildSummary(m.monthIndex)
 				return mainContentMsg{output: summary}
 			}
 		}
@@ -159,13 +160,46 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "l":
 			if m.loginSubmitted && !m.showAbout {
+				m.monthIndex = 0 // Reset to last month
 				m.isLoading = true
-				m.statusMessage = "Loading local data..."
+				m.statusMessage = "Loading last month..."
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
-						time.Sleep(1 * time.Second) // Small delay to let UI show m.statusMessage
-						summary := BuildSummary()
+						time.Sleep(200 * time.Millisecond)
+						summary := BuildSummary(m.monthIndex)
+						return mainContentMsg{output: summary}
+					},
+				)
+			}
+		case "left":
+			if m.loginSubmitted && !m.showAbout {
+				if m.monthIndex < 12 {
+					m.monthIndex++
+				}
+				m.isLoading = true
+				m.statusMessage = fmt.Sprintf("Loading month %d back...", m.monthIndex)
+				return m, tea.Batch(
+					m.spinner.Tick,
+					func() tea.Msg {
+						time.Sleep(200 * time.Millisecond)
+						summary := BuildSummary(m.monthIndex)
+						return mainContentMsg{output: summary}
+					},
+				)
+			}
+		case "right":
+			if m.loginSubmitted && !m.showAbout {
+				if m.monthIndex > 0 {
+					m.monthIndex--
+				}
+				m.isLoading = true
+				m.statusMessage = fmt.Sprintf("Loading month %d back...", m.monthIndex)
+				return m, tea.Batch(
+					m.spinner.Tick,
+					func() tea.Msg {
+						time.Sleep(200 * time.Millisecond)
+						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
 				)
@@ -310,7 +344,7 @@ func (m model) View() string {
 			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
 		}
 
-		b.WriteString(helpStyle.Render("f fetch • l load • c clear • x logout • esc leave • a about"))
+		b.WriteString(helpStyle.Render("f fetch • l load • ← → prev/next • c clear • x logout • esc leave • a about"))
 
 	} else {
 		// Show the input form

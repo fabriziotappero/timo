@@ -52,7 +52,7 @@ func readLatestJSON[T any](prefix string) (*T, error) {
 
 // returns a summary string combining data from both Timenet and Kimai JSON files
 // to be directed to the main content area of the UI
-func BuildSummary() string {
+func BuildSummary(whatMonth int) string {
 	timenet_data, err := readLatestJSON[TimenetData]("timenet_data_")
 	if err != nil {
 		return ""
@@ -63,13 +63,17 @@ func BuildSummary() string {
 		return ""
 	}
 
+	// limit month navigation to what is available in the timenet JSON file
+	monthCount := len(timenet_data.MonthlyData)
+	whatMonth = max(0, min(whatMonth, monthCount-1))
+
 	var result strings.Builder
 	result.WriteString("------------------------ Summary ------------------------\n")
 	result.WriteString(fmt.Sprintf(" Last Remote Fetch:             %s %s\n", redStyle.Render(timenet_data.FetchDate), redStyle.Render(timenet_data.FetchTime)))
 	result.WriteString(fmt.Sprintf(" Reporting Year:                %s\n", timenet_data.Year))
-	result.WriteString(fmt.Sprintf(" Reporting Month:               %s\n", timenet_data.MonthlyData[0].Month))
-	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.MonthlyData[0].ExpectedWorkedTimeInMonth))
-	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:  %s\n", timenet_data.MonthlyData[0].WorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Reporting Month:               %s\n", timenet_data.MonthlyData[whatMonth].Month))
+	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:  %s\n", timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth))
 	result.WriteString(fmt.Sprintf(" Kimai Yearly Worked Hours:     %s\n", kimai_data.Summary.WorkedTime))
 	result.WriteString(fmt.Sprintf(" This Year Overtime:            %s\n\n", timenet_data.OvertimeInYear))
 
@@ -82,7 +86,7 @@ func BuildSummary() string {
 	var monthly_timenet int = 0
 	var monthly_kimai int = 0
 
-	for _, day := range timenet_data.MonthlyData[0].DailyData {
+	for _, day := range timenet_data.MonthlyData[whatMonth].DailyData {
 
 		var kimai_worked_time int = 0
 
