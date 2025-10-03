@@ -192,7 +192,7 @@ func appendHTML(selector string, target *string) chromedp.Action {
 	})
 }
 
-// scrape timenet website content from january first of curent year.
+// scrape timenet website content from january first of curent year
 func scrapeTimenet(password string) (string, error) {
 
 	ctx, cancel := newChromeContext(
@@ -200,9 +200,12 @@ func scrapeTimenet(password string) (string, error) {
 	)
 	defer cancel()
 
-	//thisYear := time.Now().Year()
 	monthsToGoBack := int(time.Now().Month() - time.January)
 	slog.Info("Timenet. Scraping the last n months from January to month", "n", monthsToGoBack, "month", time.Now().Month().String())
+
+	// scrape last 12 months
+	//monthsToGoBack := 11 // Always go back 11 months to get 12 months total (current + 11 previous)
+	//slog.Info("Timenet. Scraping 12 months of data")
 
 	var responseHTML string
 

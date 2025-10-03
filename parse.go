@@ -90,6 +90,7 @@ func timenetParse(htmlContent *string) error {
 	data.ExpectedWorkedTimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(2).Text())
 	data.OvertimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(2).Text())
 	data.WorkedTimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(2).Text())
+
 	str := strings.TrimSpace(doc.Find(".container-mes-checks h2").First().Text()) // taken from current month
 	data.Year = regexp.MustCompile(`[^0-9]`).ReplaceAllString(str, "")            // get only the year number
 

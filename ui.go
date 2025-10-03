@@ -174,7 +174,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "left":
 			if m.loginSubmitted && !m.showAbout {
-				if m.monthIndex < 12 {
+				if m.monthIndex < 11 { // 0-11 for 12 months
 					m.monthIndex++
 				}
 				m.isLoading = true
@@ -225,7 +225,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if err != nil {
 							return fetchMsg{success: false, message: "Timenet fetch failed: " + err.Error()}
 						}
-						time.Sleep(1 * time.Second) // Keep message visible
+						time.Sleep(2 * time.Second) // Keep message visible
 						return fetchMsg{success: true, message: "Timenet fetch completed successfully"}
 					},
 					func() tea.Msg {
@@ -233,7 +233,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if err != nil {
 							return fetchMsg{success: false, message: "Kimai fetch failed: " + err.Error()}
 						}
-						time.Sleep(1 * time.Second) // Keep message visible
+						time.Sleep(2 * time.Second)
 						return fetchMsg{success: true, message: "Kimai fetch completed successfully"}
 					},
 				)
@@ -344,7 +344,7 @@ func (m model) View() string {
 			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
 		}
 
-		b.WriteString(helpStyle.Render("f fetch • l load • ← → prev/next • c clear • x logout • esc leave • a about"))
+		b.WriteString(helpStyle.Render("f fetch • l load • ← → prev/next • c clear • x logout • a about"))
 
 	} else {
 		// Show the input form
