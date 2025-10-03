@@ -196,13 +196,13 @@ func appendHTML(selector string, target *string) chromedp.Action {
 func scrapeTimenet(password string) (string, error) {
 
 	ctx, cancel := newChromeContext(
-		chromedp.Flag("headless", false),
+	//chromedp.Flag("headless", false),
 	)
 	defer cancel()
 
 	//thisYear := time.Now().Year()
-	monthsToGoBack := (time.Now().Month() - time.January)
-	slog.Info("Timenet. Scraping the last n months from January to month", "n", int(monthsToGoBack), "month", time.Now().Month().String())
+	monthsToGoBack := int(time.Now().Month() - time.January)
+	slog.Info("Timenet. Scraping the last n months from January to month", "n", monthsToGoBack, "month", time.Now().Month().String())
 
 	var responseHTML string
 
@@ -219,22 +219,28 @@ func scrapeTimenet(password string) (string, error) {
 		// go to checks page
 		chromedp.WaitVisible(`footer`, chromedp.ByQuery),
 		chromedp.Click(`a.nav-link[href="/checks"]`, chromedp.ByQuery),
-		chromedp.Sleep(2*time.Second),
+		chromedp.Sleep(1*time.Second),
 
-		// loop monthsToGoBack times to go back to January
+		// loop monthsToGoBack times to go back to January of the same year
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			for i := 0; i < int(monthsToGoBack); i++ {
-				// click back button to go to previous month
-				err := chromedp.Click(`div.container-mes-checks button:first-child`, chromedp.ByQuery).Do(ctx)
-				if err != nil {
-					return err
-				}
-				chromedp.Sleep(1 * time.Second).Do(ctx)
+			for i := 0; i < monthsToGoBack+1; i++ {
+
+				var err error
+
 				// append current month HTML to responseHTML
 				err = appendHTML("div.card", &responseHTML).Do(ctx)
 				if err != nil {
 					return err
 				}
+
+				chromedp.Sleep(1 * time.Second).Do(ctx)
+
+				// click back button to go to previous month
+				err = chromedp.Click(`div.container-mes-checks button:first-child`, chromedp.ByQuery).Do(ctx)
+				if err != nil {
+					return err
+				}
+
 			}
 			return nil
 		}),

@@ -86,56 +86,69 @@ func timenetParse(htmlContent *string) error {
 		return err
 	}
 
-	data.Year = "2025"
+	// REVIEW THESE 3 ITEMS
 	data.ExpectedWorkedTimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(2).Text())
 	data.OvertimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(2).Text())
 	data.WorkedTimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(2).Text())
+	str := strings.TrimSpace(doc.Find(".container-mes-checks h2").First().Text()) // taken from current month
+	data.Year = regexp.MustCompile(`[^0-9]`).ReplaceAllString(str, "")            // get only the year number
 
-	slog.Info("Timenet. Parsed yearly data for year", "year", data.Year)
+	monthlyEntries := doc.Find("div.card")
+	slog.Info("Timenet. Number of months to parse", "count", monthlyEntries.Length())
 
-	// let's create one month of data
-	monthlyData := TimenetMonthlyData{}
+	monthlyEntries.Each(func(i int, s *goquery.Selection) {
 
-	monthlyData.Month = "August"
-	monthlyData.ExpectedWorkedTimeInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(1).Text())
-	monthlyData.WorkedTimeInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(1).Text())
-	monthlyData.OvertimeInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(1).Text())
+		// let's create one month of data
+		monthlyData := TimenetMonthlyData{}
 
-	// let's fill up each day of data in one month
-	monthlyRows := doc.Find("table.table-checks tbody tr")
-	slog.Info("Timenet. Found and extracting daily rows", "count", monthlyRows.Length())
+		str := strings.TrimSpace(s.Find(".container-mes-checks h2").First().Text())
+		monthlyData.Month = GetMonth(str) // convert Spanish string to English month
 
-	monthlyRows.Each(func(i int, row *goquery.Selection) {
-		dailyData := TimenetDailyData{}
+		monthlyData.ExpectedWorkedTimeInMonth = strings.TrimSpace(s.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(1).Text())
+		monthlyData.WorkedTimeInMonth = strings.TrimSpace(s.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(1).Text())
+		monthlyData.OvertimeInMonth = strings.TrimSpace(s.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(1).Text())
 
-		// store data in format YYYY/MM/DD
-		dailyData.Date = convertDateFormat(strings.TrimSpace(row.Find(".day-value").Text()))
+		// let's fill up each day of data in one month
+		dailyEntries := s.Find("table.table-checks tbody tr")
+		slog.Info("Timenet. Number of days to parse", "count", dailyEntries.Length())
 
-		dailyData.ExpectedWorkedTimeInDay = strings.TrimSpace(row.Find(".prevision-day-check").Text())
-		dailyData.WorkedTimeInDay = strings.TrimSpace(row.Find(".total-day-check span").Text())
-		dailyData.OvertimeInDay = strings.TrimSpace(row.Find(".diff-day-check span").Text())
+		dailyEntries.Each(func(i int, content *goquery.Selection) {
+			dailyData := TimenetDailyData{}
 
-		dailyData.IsWorkDay = dailyData.ExpectedWorkedTimeInDay != ""
+			// store data in format YYYY/MM/DD
+			dailyData.Date = convertDateFormat(strings.TrimSpace(content.Find(".day-value").Text()))
 
-		dayTypeName := strings.TrimSpace(row.Find(".day-type-name").Text())
-		dailyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
+			dailyData.ExpectedWorkedTimeInDay = strings.TrimSpace(content.Find(".prevision-day-check").Text())
+			dailyData.WorkedTimeInDay = strings.TrimSpace(content.Find(".total-day-check span").Text())
+			dailyData.OvertimeInDay = strings.TrimSpace(content.Find(".diff-day-check span").Text())
 
-		dailyData.IsVacation = strings.Contains(dayTypeName, "Vacation") ||
-			strings.Contains(dayTypeName, "Vacaciones") ||
-			strings.Contains(dayTypeName, "Ausencia") ||
-			(dayTypeName != "" && dayTypeName != "Laborable" && dayTypeName != "non working day" && !dailyData.IsHoliday)
+			dailyData.IsWorkDay = dailyData.ExpectedWorkedTimeInDay != ""
 
-		// Only add if we have a valid date
-		if dailyData.Date != "" {
-			monthlyData.DailyData = append(monthlyData.DailyData, dailyData)
-			//slog.Info("Timenet. Parsed daily data for", "date", dailyData.Date)
-		}
+			dayTypeName := strings.TrimSpace(content.Find(".day-type-name").Text())
+			dailyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
+
+			dailyData.IsVacation = strings.Contains(dayTypeName, "Vacation") ||
+				strings.Contains(dayTypeName, "Vacaciones") ||
+				strings.Contains(dayTypeName, "Ausencia") ||
+				(dayTypeName != "" && dayTypeName != "Laborable" && dayTypeName != "non working day" && !dailyData.IsHoliday)
+
+			// Only add if we have a valid date
+			if dailyData.Date != "" {
+				monthlyData.DailyData = append(monthlyData.DailyData, dailyData)
+				//slog.Info("Timenet. Parsed daily data for", "date", dailyData.Date)
+			}
+
+		})
+
+		// let's fill up each day of data in one month
+		monthlyRows := doc.Find("table.table-checks tbody tr")
+		slog.Info("Timenet. Found and extracting daily rows", "count", monthlyRows.Length())
+
+		// let's add the monthly data
+		data.MonthlyData = append(data.MonthlyData, monthlyData)
+		slog.Info("Timenet. Parsed monthly data for month", "month", monthlyData.Month)
 
 	})
-
-	// let's add the monthly data
-	data.MonthlyData = append(data.MonthlyData, monthlyData)
-	slog.Info("Timenet. Parsed monthly data for month", "month", monthlyData.Month)
 
 	// Save to JSON file
 	filename := fmt.Sprintf("timenet_data_%s.json", time.Now().Format("2006-01-02"))
@@ -322,6 +335,23 @@ func testKimaiParsing() {
 	}
 
 	fmt.Println("Kimai parsing completed successfully! Check the JSON file in temp directory.")
+}
+
+// converts Spanish month names to English (case-insensitive)
+func GetMonth(input string) string {
+	monthMap := map[string]string{
+		"enero": "January", "febrero": "February", "marzo": "March", "abril": "April",
+		"mayo": "May", "junio": "June", "julio": "July", "agosto": "August",
+		"septiembre": "September", "octubre": "October", "noviembre": "November", "diciembre": "December",
+	}
+
+	inputLower := strings.ToLower(input)
+	for spanish, english := range monthMap {
+		if strings.Contains(inputLower, spanish) {
+			return english
+		}
+	}
+	return input
 }
 
 func testTimenetParsing() {

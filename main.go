@@ -19,9 +19,9 @@ func main() {
 			break
 		}
 		if arg == "--test" {
-			//testTimenetParsing()
+			testTimenetParsing()
 			//testKimaiParsing()
-			test_tools_all()
+			//test_tools_all()
 			return
 		}
 	}
