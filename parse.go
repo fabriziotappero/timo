@@ -14,7 +14,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// KIMAI DATA STRUCTURE
+// KIMAI JSON DATA STRUCTURE
 type KimaiData struct {
 	FetchDate   string             `json:"fetch_date"`
 	FetchTime   string             `json:"fetch_time"`
@@ -40,33 +40,33 @@ type KimaiMonthlyData struct {
 	Username   string `json:"username"`
 }
 
-// TIMENET DATA STRUCTURE
+// TIMENET JSON DATA STRUCTURE
 type TimenetData struct {
-	Date           string               `json:"current_date"`
-	Time           string               `json:"current_time"`
-	ReportingMonth string               `json:"reporting_month"`
-	Summary        TimenetSummary       `json:"summary"`
-	MonthlyData    []TimenetMonthlyData `json:"monthly_data"`
-}
-
-type TimenetSummary struct {
-	ReportingDate           string `json:"reporting_date"`
-	ExpectedHoursInMonth    string `json:"expected_hours_in_month"`
-	ExpectedHoursInYear     string `json:"expected_hours_in_year"`
-	WorkedHoursInMonth      string `json:"worked_hours_in_month"`
-	WorkedHoursInYear       string `json:"worked_hours_in_year"`
-	AccumuletedHoursInMonth string `json:"accumuleted_hours_in_month"`
-	AccumuletedHoursInYear  string `json:"accumuleted_hours_in_year"`
+	FetchDate                string               `json:"fetch_date"`
+	FetchTime                string               `json:"fetch_time"`
+	Year                     string               `json:"year"`
+	ExpectedWorkedTimeInYear string               `json:"expected_worked_time_in_year"`
+	WorkedTimeInYear         string               `json:"worked_time_in_year"`
+	OvertimeInYear           string               `json:"overtime_in_year"`
+	MonthlyData              []TimenetMonthlyData `json:"monthly_data"`
 }
 
 type TimenetMonthlyData struct {
-	Date          string `json:"date"`
-	ExpectedHours string `json:"expected_hours"`
-	WorkedHours   string `json:"worked_hours"`
-	Overtime      string `json:"overtime"`
-	IsWorkingDay  bool   `json:"is_working_day"`
-	IsHoliday     bool   `json:"is_holiday"`
-	IsVacation    bool   `json:"is_vacation"`
+	Month                     string             `json:"month"`
+	ExpectedWorkedTimeInMonth string             `json:"expected_worked_time_in_month"`
+	WorkedTimeInMonth         string             `json:"worked_time_in_month"`
+	OvertimeInMonth           string             `json:"overtime_in_month"`
+	DailyData                 []TimenetDailyData `json:"daily_data"`
+}
+
+type TimenetDailyData struct {
+	Date                    string `json:"date"`
+	ExpectedWorkedTimeInDay string `json:"expected_worked_time_in_day"`
+	WorkedTimeInDay         string `json:"worked_time_in_day"`
+	OvertimeInDay           string `json:"overtime_in_day"`
+	IsWorkDay               bool   `json:"is_work_day"`
+	IsHoliday               bool   `json:"is_holiday"`
+	IsVacation              bool   `json:"is_vacation"`
 }
 
 // timenetParse extracts data from Timenet HTML and saves to JSON file
@@ -76,8 +76,8 @@ func timenetParse(htmlContent *string) error {
 	}
 
 	data := TimenetData{
-		Date: time.Now().Format("2006/01/02"),
-		Time: time.Now().Format("15:04"),
+		FetchDate: time.Now().Format("2006/01/02"),
+		FetchTime: time.Now().Format("15:04"),
 	}
 
 	// NewDocumentFromReader takes a io.Reader not a string
@@ -86,45 +86,56 @@ func timenetParse(htmlContent *string) error {
 		return err
 	}
 
-	data.Summary.ReportingDate = strings.TrimSpace(doc.Find("div.container-mes-checks h2").First().Text())
-	data.ReportingMonth = data.Summary.ReportingDate // Store the month at top level too
-	data.Summary.ExpectedHoursInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(1).Text())
-	data.Summary.ExpectedHoursInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(2).Text())
-	data.Summary.WorkedHoursInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(1).Text())
-	data.Summary.WorkedHoursInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(2).Text())
-	data.Summary.AccumuletedHoursInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(1).Text())
-	data.Summary.AccumuletedHoursInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(2).Text())
+	data.Year = "2025"
+	data.ExpectedWorkedTimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(2).Text())
+	data.OvertimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(2).Text())
+	data.WorkedTimeInYear = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(2).Text())
 
-	// extract daily data
+	slog.Info("Timenet. Parsed yearly data for year", "year", data.Year)
+
+	// let's create one month of data
+	monthlyData := TimenetMonthlyData{}
+
+	monthlyData.Month = "August"
+	monthlyData.ExpectedWorkedTimeInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").First().Find("td").Eq(1).Text())
+	monthlyData.WorkedTimeInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(1).Find("td").Eq(1).Text())
+	monthlyData.OvertimeInMonth = strings.TrimSpace(doc.Find("table.table-resum-hores tbody tr").Eq(2).Find("td").Eq(1).Text())
+
+	// let's fill up each day of data in one month
 	monthlyRows := doc.Find("table.table-checks tbody tr")
-	slog.Info("Timenet, found and extracting daily rows", "count", monthlyRows.Length())
+	slog.Info("Timenet. Found and extracting daily rows", "count", monthlyRows.Length())
 
 	monthlyRows.Each(func(i int, row *goquery.Selection) {
-		monthlyData := TimenetMonthlyData{}
+		dailyData := TimenetDailyData{}
 
-		// store data into format YYYY/MM/DD
-		monthlyData.Date = convertDateFormat(strings.TrimSpace(row.Find(".day-value").Text()))
+		// store data in format YYYY/MM/DD
+		dailyData.Date = convertDateFormat(strings.TrimSpace(row.Find(".day-value").Text()))
+
+		dailyData.ExpectedWorkedTimeInDay = strings.TrimSpace(row.Find(".prevision-day-check").Text())
+		dailyData.WorkedTimeInDay = strings.TrimSpace(row.Find(".total-day-check span").Text())
+		dailyData.OvertimeInDay = strings.TrimSpace(row.Find(".diff-day-check span").Text())
+
+		dailyData.IsWorkDay = dailyData.ExpectedWorkedTimeInDay != ""
 
 		dayTypeName := strings.TrimSpace(row.Find(".day-type-name").Text())
-		monthlyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
+		dailyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
 
-		monthlyData.IsVacation = strings.Contains(dayTypeName, "Vacation") ||
+		dailyData.IsVacation = strings.Contains(dayTypeName, "Vacation") ||
 			strings.Contains(dayTypeName, "Vacaciones") ||
 			strings.Contains(dayTypeName, "Ausencia") ||
-			(dayTypeName != "" && dayTypeName != "Laborable" && dayTypeName != "non working day" && !monthlyData.IsHoliday)
-
-		monthlyData.ExpectedHours = strings.TrimSpace(row.Find(".prevision-day-check").Text())
-		monthlyData.WorkedHours = strings.TrimSpace(row.Find(".total-day-check span").Text())
-		monthlyData.Overtime = strings.TrimSpace(row.Find(".diff-day-check span").Text())
-
-		// A working day should have expected hours set (data-driven approach)
-		monthlyData.IsWorkingDay = monthlyData.ExpectedHours != ""
+			(dayTypeName != "" && dayTypeName != "Laborable" && dayTypeName != "non working day" && !dailyData.IsHoliday)
 
 		// Only add if we have a valid date
-		if monthlyData.Date != "" {
-			data.MonthlyData = append(data.MonthlyData, monthlyData)
+		if dailyData.Date != "" {
+			monthlyData.DailyData = append(monthlyData.DailyData, dailyData)
+			//slog.Info("Timenet. Parsed daily data for", "date", dailyData.Date)
 		}
+
 	})
+
+	// let's add the monthly data
+	data.MonthlyData = append(data.MonthlyData, monthlyData)
+	slog.Info("Timenet. Parsed monthly data for month", "month", monthlyData.Month)
 
 	// Save to JSON file
 	filename := fmt.Sprintf("timenet_data_%s.json", time.Now().Format("2006-01-02"))

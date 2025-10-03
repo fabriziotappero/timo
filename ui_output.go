@@ -65,13 +65,13 @@ func BuildSummary() string {
 
 	var result strings.Builder
 	result.WriteString("------------------------ Summary ------------------------\n")
-	result.WriteString(fmt.Sprintf(" Last Update:                   %s %s\n", redStyle.Render(timenet_data.Date), redStyle.Render(timenet_data.Time)))
-	result.WriteString(fmt.Sprintf(" Reporting Date:                %s\n", timenet_data.Summary.ReportingDate))
-	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.Summary.ExpectedHoursInMonth))
-	result.WriteString(fmt.Sprintf(" Timenet Monthly Clocked Hours: %s\n", timenet_data.Summary.WorkedHoursInMonth))
-	result.WriteString(fmt.Sprintf(" Kimai Yearly Clocked Hours:    %s\n", kimai_data.Summary.WorkedTime))
-	result.WriteString(fmt.Sprintf(" This Year Overtime:            %s\n\n", timenet_data.Summary.AccumuletedHoursInYear))
-	//result.WriteString("==========================================\n\n")
+	result.WriteString(fmt.Sprintf(" Last Remote Fetch:             %s %s\n", redStyle.Render(timenet_data.FetchDate), redStyle.Render(timenet_data.FetchTime)))
+	result.WriteString(fmt.Sprintf(" Reporting Year:                %s\n", timenet_data.Year))
+	result.WriteString(fmt.Sprintf(" Reporting Month:               %s\n", timenet_data.MonthlyData[0].Month))
+	result.WriteString(fmt.Sprintf(" Required Monthly Hours:        %s\n", timenet_data.MonthlyData[0].ExpectedWorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:  %s\n", timenet_data.MonthlyData[0].WorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Kimai Yearly Worked Hours:     %s\n", kimai_data.Summary.WorkedTime))
+	result.WriteString(fmt.Sprintf(" This Year Overtime:            %s\n\n", timenet_data.OvertimeInYear))
 
 	// lets plot here a table with daily data
 	result.WriteString(" Date          | Overtime | Timenet | Kimai   | Diff  \n")
@@ -82,7 +82,7 @@ func BuildSummary() string {
 	var monthly_timenet int = 0
 	var monthly_kimai int = 0
 
-	for _, day := range timenet_data.MonthlyData {
+	for _, day := range timenet_data.MonthlyData[0].DailyData {
 
 		var kimai_worked_time int = 0
 
@@ -90,7 +90,7 @@ func BuildSummary() string {
 		switch {
 		case day.IsHoliday:
 			dayType = "🎉"
-		case day.IsWorkingDay:
+		case day.IsWorkDay:
 			dayType = "🧑‍💼" //🔨🔧💼🧰
 		case day.IsVacation:
 			dayType = "🏝️"
@@ -122,13 +122,13 @@ func BuildSummary() string {
 		}
 
 		// accumulate overtime over the month
-		overtime, err := convertTimeStringToMinutes(day.Overtime)
+		overtime, err := convertTimeStringToMinutes(day.OvertimeInDay)
 		if err == nil {
 			monthly_overtime += overtime
 		}
 
 		// Add to timenet total
-		timenet_worked_time, err := convertTimeStringToMinutes(day.WorkedHours)
+		timenet_worked_time, err := convertTimeStringToMinutes(day.WorkedTimeInDay)
 		if err == nil {
 			monthly_timenet += timenet_worked_time
 		}
@@ -153,7 +153,7 @@ func BuildSummary() string {
 		diff := convertMinutesToTimeString(daily_diff)
 
 		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s %s\n",
-			day.Date, dayType, day.Overtime, day.WorkedHours, kimaiWorkedTime, diff, warning,
+			day.Date, dayType, day.OvertimeInDay, day.WorkedTimeInDay, kimaiWorkedTime, diff, warning,
 		))
 
 	}
