@@ -172,13 +172,37 @@ func newChromeContext(extraOpts ...chromedp.ExecAllocatorOption) (context.Contex
 	return ctx, cancel
 }
 
-// scrape timenet website content for the current month
+// append the HTML content of the specified selector to the target string
+func appendHTML(selector string, target *string) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+
+		err := chromedp.WaitVisible(`div.card`, chromedp.ByQuery).Do(ctx)
+		if err != nil {
+			return err
+		}
+		chromedp.Sleep(1 * time.Second).Do(ctx)
+
+		var htmlContent string
+		err = chromedp.OuterHTML(selector, &htmlContent, chromedp.ByQuery).Do(ctx)
+		if err != nil {
+			return err
+		}
+		*target += htmlContent
+		return nil
+	})
+}
+
+// scrape timenet website content from january first of curent year.
 func scrapeTimenet(password string) (string, error) {
 
 	ctx, cancel := newChromeContext(
-	//chromedp.Flag("headless", false),
+		chromedp.Flag("headless", false),
 	)
 	defer cancel()
+
+	//thisYear := time.Now().Year()
+	monthsToGoBack := (time.Now().Month() - time.January)
+	slog.Info("Timenet. Scraping the last n months from January to month", "n", int(monthsToGoBack), "month", time.Now().Month().String())
 
 	var responseHTML string
 
@@ -186,18 +210,34 @@ func scrapeTimenet(password string) (string, error) {
 		chromedp.Navigate("https://timenet-wcp.gpisoftware.com/login/28b27216-c0c8-469c-816b-c65d0a11c7dd"),
 		chromedp.Sleep(1*time.Second),
 
+		// login
 		chromedp.WaitVisible(`#gpi-input-0`, chromedp.ByQuery),
 		chromedp.Clear(`#gpi-input-0`, chromedp.ByQuery),
 		chromedp.SendKeys(`#gpi-input-0`, password+"\n", chromedp.ByQuery),
 		chromedp.Sleep(2*time.Second),
 
+		// go to checks page
 		chromedp.WaitVisible(`footer`, chromedp.ByQuery),
 		chromedp.Click(`a.nav-link[href="/checks"]`, chromedp.ByQuery),
-
 		chromedp.Sleep(2*time.Second),
-		chromedp.WaitVisible(`footer`, chromedp.ByQuery),
 
-		chromedp.OuterHTML(`html`, &responseHTML, chromedp.ByQuery),
+		// loop monthsToGoBack times to go back to January
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			for i := 0; i < int(monthsToGoBack); i++ {
+				// click back button to go to previous month
+				err := chromedp.Click(`div.container-mes-checks button:first-child`, chromedp.ByQuery).Do(ctx)
+				if err != nil {
+					return err
+				}
+				chromedp.Sleep(1 * time.Second).Do(ctx)
+				// append current month HTML to responseHTML
+				err = appendHTML("div.card", &responseHTML).Do(ctx)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
 	)
 
 	if err != nil {
@@ -218,9 +258,10 @@ func scrapeTimenet(password string) (string, error) {
 
 }
 
-// scrape kimai website content for the whole current year
-// once logged into the kimai site store current view filter,
-// reset the filter and once finished restore the filter.
+// scrape kimai website content from january first of curent year.
+// Once logged into the kimai site store current view filter then
+// sets it to January 1st of current year and once finished scraping
+// re-sets to its original state.
 func scrapeKimai(id string, password string) (string, error) {
 
 	ctx, cancel := newChromeContext(

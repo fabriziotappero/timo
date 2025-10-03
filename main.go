@@ -41,7 +41,6 @@ func main() {
 func fetchTimenet(password string) error {
 
 	// SCRAPING
-	slog.Info("Starting Timenet scraping")
 	_html, err := scrapeTimenet(password)
 	if err != nil {
 		slog.Error("Failed to scrape Timenet", "error", err)
