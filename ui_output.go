@@ -173,7 +173,7 @@ func BuildSummary(whatMonth int) string {
 
 	// Display monthly totals for each column
 	result.WriteString(
-		fmt.Sprintf(" %-10s %2s  %-10s %-9s %-9s %-9s\n",
+		fmt.Sprintf(" %-10s %s   %-10s %-9s %-9s %-9s\n",
 			"", "🎲",
 			convertMinutesToTimeString(monthly_overtime),
 			strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+"),
