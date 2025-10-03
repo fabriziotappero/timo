@@ -174,7 +174,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "left":
 			if m.loginSubmitted && !m.showAbout {
-				if m.monthIndex < 11 { // 0-11 for 12 months
+
+				// simple hack to prevent going past available months in the current year
+				// this number should depend on the data available in the timenet JSON file
+				// for simplicity, we just calculate based on the current month
+				monthsAvailable := int(time.Now().Month()) - 1
+
+				if m.monthIndex < monthsAvailable { // 0-11 for 12 months
 					m.monthIndex++
 				}
 				m.isLoading = true
