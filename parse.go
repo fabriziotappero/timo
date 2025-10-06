@@ -95,7 +95,7 @@ func timenetParse(htmlContent *string) error {
 	data.Year = regexp.MustCompile(`[^0-9]`).ReplaceAllString(str, "")            // get only the year number
 
 	monthlyEntries := doc.Find("div.card")
-	slog.Info("Timenet. Number of months to parse", "count", monthlyEntries.Length())
+	slog.Info("Timenet: Number of months to parse", "count", monthlyEntries.Length())
 
 	monthlyEntries.Each(func(i int, s *goquery.Selection) {
 
@@ -111,7 +111,7 @@ func timenetParse(htmlContent *string) error {
 
 		// let's fill up each day of data in one month
 		dailyEntries := s.Find("table.table-checks tbody tr")
-		slog.Info("Timenet. Number of days to parse", "count", dailyEntries.Length())
+		slog.Info("Timenet: Number of days to parse", "count", dailyEntries.Length())
 
 		dailyEntries.Each(func(i int, content *goquery.Selection) {
 			dailyData := TimenetDailyData{}
@@ -136,18 +136,18 @@ func timenetParse(htmlContent *string) error {
 			// Only add if we have a valid date
 			if dailyData.Date != "" {
 				monthlyData.DailyData = append(monthlyData.DailyData, dailyData)
-				//slog.Info("Timenet. Parsed daily data for", "date", dailyData.Date)
+				//slog.Info("Timenet: Parsed daily data for", "date", dailyData.Date)
 			}
 
 		})
 
 		// let's fill up each day of data in one month
 		monthlyRows := doc.Find("table.table-checks tbody tr")
-		slog.Info("Timenet. Found and extracting daily rows", "count", monthlyRows.Length())
+		slog.Info("Timenet: Found and extracting daily rows", "count", monthlyRows.Length())
 
 		// let's add the monthly data
 		data.MonthlyData = append(data.MonthlyData, monthlyData)
-		slog.Info("Timenet. Parsed monthly data for month", "month", monthlyData.Month)
+		slog.Info("Timenet: Parsed monthly data for month", "month", monthlyData.Month)
 
 	})
 
@@ -260,7 +260,7 @@ func kimaiParse(htmlContent *string) error {
 
 	// Extract monthly data from timesheet entries
 	monthlyRows := doc.Find("#timeSheetTable table tbody tr")
-	slog.Info("Found and extracting timesheet rows: ", "count", monthlyRows.Length())
+	slog.Info("Kimai: Found and extracting timesheet rows: ", "count", monthlyRows.Length())
 
 	monthlyRows.Each(func(i int, row *goquery.Selection) {
 		monthlyData := KimaiMonthlyData{}

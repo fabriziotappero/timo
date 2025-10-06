@@ -56,12 +56,12 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		var currentDateText string
 		chromedp.Text(fieldSelector, &currentDateText, chromedp.ByQuery).Do(ctx)
 
-		slog.Info("Current date picker shows", "date", currentDateText, "field", fieldSelector)
-		slog.Info("We want to set", "date", dateTarget, "field", fieldSelector)
+		slog.Info("Kimai: Current date picker shows", "date", currentDateText, "field", fieldSelector)
+		slog.Info("Kimai: We want to set", "date", dateTarget, "field", fieldSelector)
 
 		// Check if we're already at the target date
 		if currentDateText == dateTarget {
-			slog.Info("Already at target date, no navigation needed")
+			slog.Info("Kimai: Already at target date, no navigation needed")
 			return nil
 		}
 
@@ -71,7 +71,7 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		// Open the date picker by evaluating JS on the hidden input
 		chromedp.Sleep(2 * time.Second).Do(ctx)
 		chromedp.WaitVisible(fieldSelector, chromedp.ByQuery).Do(ctx)
-		slog.Info("DEBUG: Triggering datepicker via JS on hidden input")
+		slog.Info("Kimai: Triggering datepicker via JS on hidden input")
 		var inputSelector string
 		if fieldSelector == "#ts_in" {
 			inputSelector = "#pick_in"
@@ -82,7 +82,7 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		}
 		errEval := chromedp.EvaluateAsDevTools(fmt.Sprintf("$('#%s').datepicker('show')", inputSelector[1:]), nil).Do(ctx)
 		if errEval != nil {
-			slog.Error("DEBUG: Failed to trigger datepicker via JS", "error", errEval)
+			slog.Error("failed to trigger datepicker via JS", "error", errEval)
 		}
 
 		// let's wait a bit for the date picker to be visible
@@ -90,7 +90,7 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
 
 		// Click prev/next based on calculated difference
-		slog.Info("Trying to set MONTH in date picker moving of", "monthsDiff", monthsDiff)
+		slog.Info("Kimai: Trying to set MONTH in date picker moving of", "monthsDiff", monthsDiff)
 		if monthsDiff > 0 {
 			// Go forwards (next)
 			for i := 0; i < monthsDiff; i++ {
@@ -108,18 +108,18 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
 			}
 		} else {
-			slog.Info("No month navigation is needed")
+			slog.Info("Kimai: No month navigation is needed")
 		}
 		chromedp.Sleep(1 * time.Second).Do(ctx)
 
 		// Extract day from dateTarget and click on it using the HTML select
-		slog.Info("Trying to set DAY in date picker", "date", dateTarget)
+		slog.Info("Kimai: Trying to set DAY in date picker", "date", dateTarget)
 
 		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
 		var targetDay, targetMonth, targetYear int
 		fmt.Sscanf(dateTarget, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
 		daySelector := fmt.Sprintf(`//a[text()="%d"]`, targetDay)
-		slog.Info("Trying to click on day in date picker", "day", targetDay)
+		slog.Info("Kimai: Trying to click on day in date picker", "day", targetDay)
 		chromedp.Click(daySelector, chromedp.BySearch).Do(ctx)
 		chromedp.Sleep(2 * time.Second).Do(ctx)
 
@@ -156,6 +156,27 @@ func newChromeContext(extraOpts ...chromedp.ExecAllocatorOption) (context.Contex
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("no-sandbox", true),
+		// Force desktop viewport size to avoid mobile layout
+		chromedp.Flag("window-size", "1920,1080"),
+
+		// Disable password save prompts and notifications
+		chromedp.Flag("disable-password-generation", true),
+		chromedp.Flag("disable-save-password-bubble", true),
+		chromedp.Flag("disable-password-manager-reauthentication", true),
+		chromedp.Flag("disable-notifications", true),
+		chromedp.Flag("disable-desktop-notifications", true),
+		chromedp.Flag("disable-web-security", true),
+		chromedp.Flag("disable-infobars", true),
+		chromedp.Flag("disable-translate", true),
+		chromedp.Flag("disable-popup-blocking", true),
+		// Additional Windows headless stability flags
+		//chromedp.Flag("disable-features", "VizDisplayCompositor"),
+		//chromedp.Flag("disable-background-timer-throttling", true),
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		//chromedp.Flag("disable-renderer-backgrounding", true),
+		//chromedp.Flag("disable-field-trial-config", true),
+		//chromedp.Flag("disable-ipc-flooding-protection", true),
+		//chromedp.Flag("single-process", true), // This can help with Windows headless issues
 	)
 	opts = append(opts, extraOpts...)
 	slog.Info("Using Chrome/Chromium executable:", "path", chromiumPath)
@@ -201,7 +222,8 @@ func scrapeTimenet(password string) (string, error) {
 	defer cancel()
 
 	monthsToGoBack := int(time.Now().Month() - time.January)
-	slog.Info("Timenet. Scraping the last n months from January to month", "n", monthsToGoBack, "month", time.Now().Month().String())
+	slog.Info("Timenet: Scraping months from January to current month",
+		"monthsToScrape", monthsToGoBack+1, "currentMonth", time.Now().Month().String())
 
 	// scrape last 12 months
 	//monthsToGoBack := 11 // Always go back 11 months to get 12 months total (current + 11 previous)
@@ -210,29 +232,65 @@ func scrapeTimenet(password string) (string, error) {
 	var responseHTML string
 
 	err := chromedp.Run(ctx,
-		chromedp.Navigate("https://timenet-wcp.gpisoftware.com/login/28b27216-c0c8-469c-816b-c65d0a11c7dd"),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			slog.Info("Timenet: Navigating to Timenet login page")
+			return chromedp.Navigate("https://timenet-wcp.gpisoftware.com/login/28b27216-c0c8-469c-816b-c65d0a11c7dd").Do(ctx)
+		}),
 		chromedp.Sleep(1*time.Second),
 
 		// login
-		chromedp.WaitVisible(`#gpi-input-0`, chromedp.ByQuery),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			slog.Info("Timenet: Waiting for login input to be visible")
+			return chromedp.WaitVisible(`#gpi-input-0`, chromedp.ByQuery).Do(ctx)
+		}),
 		chromedp.Clear(`#gpi-input-0`, chromedp.ByQuery),
-		chromedp.SendKeys(`#gpi-input-0`, password+"\n", chromedp.ByQuery),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			slog.Info("Timenet: Entering password and submitting")
+			return chromedp.SendKeys(`#gpi-input-0`, password+"\n", chromedp.ByQuery).Do(ctx)
+		}),
+
 		chromedp.Sleep(2*time.Second),
 
 		// go to checks page
-		chromedp.WaitVisible(`footer`, chromedp.ByQuery),
-		chromedp.Click(`a.nav-link[href="/checks"]`, chromedp.ByQuery),
-		chromedp.Sleep(1*time.Second),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			slog.Info("Timenet: Waiting for checks navigation link to be clickable")
+			// First wait for the link to be visible
+			err := chromedp.WaitVisible(`a.nav-link[href="/checks"]`, chromedp.ByQuery).Do(ctx)
+			if err != nil {
+				slog.Error("Timenet: CHECKS LINK not visible", "error", err)
+				return err
+			}
+			// Add extra wait for Windows headless mode
+			chromedp.Sleep(2 * time.Second).Do(ctx)
+			slog.Info("Timenet: Clicking checks navigation link")
+			return chromedp.Click(`a.nav-link[href="/checks"]`, chromedp.ByQuery).Do(ctx)
+		}),
+		chromedp.Sleep(2*time.Second), // Give more time for navigation
+
+		// Verify we're on the checks page by waiting for a checks-specific element
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			slog.Info("Timenet: Waiting for checks page to load")
+			err := chromedp.WaitVisible(`div.container-mes-checks`, chromedp.ByQuery).Do(ctx)
+			if err != nil {
+				slog.Error("Timenet: Checks page container not found", "error", err)
+				return err
+			}
+			slog.Info("Timenet: Successfully navigated to checks page")
+			return nil
+		}),
 
 		// loop monthsToGoBack times to go back to January of the same year
 		chromedp.ActionFunc(func(ctx context.Context) error {
+			slog.Info("Timenet: Starting month iteration loop", "totalMonths", monthsToGoBack+1)
 			for i := 0; i < monthsToGoBack+1; i++ {
+				slog.Info("Timenet: Processing month iteration", "iteration", i+1, "of", monthsToGoBack+1)
 
 				var err error
 
 				// append current month HTML to responseHTML
 				err = appendHTML("div.card", &responseHTML).Do(ctx)
 				if err != nil {
+					slog.Error("Timenet: Failed to append HTML", "iteration", i+1, "error", err)
 					return err
 				}
 
@@ -243,8 +301,8 @@ func scrapeTimenet(password string) (string, error) {
 				if err != nil {
 					return err
 				}
-
 			}
+			slog.Info("Timenet: Completed all month iterations successfully")
 			return nil
 		}),
 	)
@@ -353,7 +411,7 @@ func scrapeKimai(id string, password string) (string, error) {
 		chromedp.Sleep(1*time.Second),
 		setDatePickerFilter(viewFilterOriginalEndDate, "#ts_out"),
 	)
-	slog.Info("Restored original Kimai view filter", "start", viewFilterOriginalStartDate, "end", viewFilterOriginalEndDate)
+	slog.Info("Kimai: Restored original view filter", "start", viewFilterOriginalStartDate, "end", viewFilterOriginalEndDate)
 
 	if err1 != nil {
 		return "", fmt.Errorf("failed to reset Kimai date picker date: %v", err1)

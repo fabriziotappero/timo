@@ -68,19 +68,18 @@ func BuildSummary(whatMonth int) string {
 	whatMonth = max(0, min(whatMonth, monthCount-1))
 
 	var result strings.Builder
-	result.WriteString("------------------------ Summary ------------------------\n")
+	result.WriteString("------------------------- Summary -------------------------\n")
 	result.WriteString(fmt.Sprintf(" Last Remote Fetch:                     %s %s\n", redStyle.Render(timenet_data.FetchDate), redStyle.Render(timenet_data.FetchTime)))
-	result.WriteString(fmt.Sprintf(" Reporting Year:                        %s\n", timenet_data.Year))
-	result.WriteString(fmt.Sprintf(" Reporting Month:                       %s\n", timenet_data.MonthlyData[whatMonth].Month))
-	result.WriteString(fmt.Sprintf(" Required Monthly Hours:                %s\n", timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
-	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:          %s\n", timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Reporting Date:                        %s %s\n", timenet_data.MonthlyData[whatMonth].Month, timenet_data.Year))
+	//result.WriteString(fmt.Sprintf(" Required Monthly Hours:                %s\n", timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
+	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:          %s of %s\n", timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth, timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
 	result.WriteString(fmt.Sprintf(" Kimai Yearly Worked Hours:             %s\n", kimai_data.Summary.WorkedTime))
 	result.WriteString(fmt.Sprintf(" This Year Overtime:                    %s\n\n", timenet_data.OvertimeInYear))
 	//result.WriteString(fmt.Sprintf(" This year Timenet/Kimai Discrepancy:   %s\n\n", "0h 0m"))
 
 	// lets plot here a table with daily data
 	result.WriteString(" Date          | Overtime | Timenet | Kimai   | Diff  \n")
-	result.WriteString("---------------------------------------------------------\n")
+	result.WriteString("-----------------------------------------------------------\n")
 
 	var monthly_diff int = 0
 	var monthly_overtime int = 0
@@ -169,7 +168,7 @@ func BuildSummary(whatMonth int) string {
 		))
 
 	}
-	result.WriteString("---------------------------------------------------------\n")
+	result.WriteString("-----------------------------------------------------------\n")
 
 	// Display monthly totals for each column
 	result.WriteString(
