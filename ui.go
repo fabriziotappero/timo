@@ -340,7 +340,7 @@ func (m model) View() string {
 			b.WriteString(m.mainContent + "\n")
 		} else {
 			// we should not use the main content area for status messages
-			b.WriteString("ready\n\n")
+			b.WriteString("\nReady! Try 'f' to fetch stuff.\n\n")
 		}
 
 		// Show status message with spinner if loading

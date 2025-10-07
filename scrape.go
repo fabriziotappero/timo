@@ -360,20 +360,33 @@ func scrapeKimai(id string, password string) (string, error) {
 	err := chromedp.Run(ctx,
 		// login
 		chromedp.Navigate("https://kimai.itk-spain.com/index.php"),
-		chromedp.Sleep(2*time.Second),
+		chromedp.Sleep(1*time.Second),
 		chromedp.WaitVisible(`#kimaiusername`, chromedp.ByQuery),
 		chromedp.Clear(`#kimaiusername`, chromedp.ByQuery),
 		chromedp.SendKeys(`#kimaiusername`, id, chromedp.ByQuery),
-		chromedp.Sleep(1*time.Second),
+		chromedp.Sleep(300*time.Millisecond),
 		chromedp.Clear(`#kimaipassword`, chromedp.ByQuery),
 		chromedp.SendKeys(`#kimaipassword`, password, chromedp.ByQuery),
-		chromedp.Sleep(1*time.Second),
+		chromedp.Sleep(300*time.Millisecond),
 		chromedp.Click(`#loginButton`, chromedp.ByQuery),
 		chromedp.Sleep(1*time.Second),
 
+		// in Kimai preference set 920 entries per page
+		chromedp.Evaluate(`floaterShow("floaters.php","prefs",0,0,450);`, nil), // open preferences floating panel
+		chromedp.Sleep(1*time.Second),
+		chromedp.WaitVisible(`#floater`, chromedp.ByQuery),
+		chromedp.Sleep(1*time.Second),
+		chromedp.Click(`#floater .menu.tabSelection li:nth-child(3)`, chromedp.ByQuery),
+		chromedp.Sleep(300*time.Millisecond),
+		chromedp.WaitVisible(`#rowlimit`, chromedp.ByQuery),
+		chromedp.Sleep(300*time.Millisecond),
+		chromedp.Clear(`#rowlimit`, chromedp.ByQuery),
+		chromedp.SendKeys(`#rowlimit`, "920\n", chromedp.ByQuery),
+		chromedp.Sleep(300*time.Millisecond),
+
 		// wait for date picker elements to be visible/loaded
 		chromedp.WaitVisible(`#dates`, chromedp.ByQuery),
-		chromedp.Sleep(2*time.Second),
+		chromedp.Sleep(300*time.Millisecond),
 		chromedp.WaitVisible(`#ts_in`, chromedp.ByQuery),
 		chromedp.WaitVisible(`#ts_out`, chromedp.ByQuery),
 
