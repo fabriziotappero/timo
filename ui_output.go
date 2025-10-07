@@ -69,13 +69,27 @@ func BuildSummary(whatMonth int) string {
 
 	var result strings.Builder
 	result.WriteString("------------------------- Summary -------------------------\n")
-	result.WriteString(fmt.Sprintf(" Last Remote Fetch:                     %s %s\n", redStyle.Render(timenet_data.FetchDate), redStyle.Render(timenet_data.FetchTime)))
-	result.WriteString(fmt.Sprintf(" Reporting Date:                        %s %s\n", timenet_data.MonthlyData[whatMonth].Month, timenet_data.Year))
-	//result.WriteString(fmt.Sprintf(" Required Monthly Hours:                %s\n", timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
-	result.WriteString(fmt.Sprintf(" Timenet Monthly Worked Hours:          %s of %s\n", timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth, timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
-	result.WriteString(fmt.Sprintf(" Kimai Yearly Worked Hours:             %s\n", kimai_data.Summary.WorkedTime))
-	result.WriteString(fmt.Sprintf(" This Year Overtime:                    %s\n\n", timenet_data.OvertimeInYear))
-	//result.WriteString(fmt.Sprintf(" This year Timenet/Kimai Discrepancy:   %s\n\n", "0h 0m"))
+
+	result.WriteString(fmt.Sprintf(" %-38s%s %s\n",
+		"Last Remote Fetch:", redStyle.Render(timenet_data.FetchDate),
+		redStyle.Render(timenet_data.FetchTime)))
+
+	result.WriteString(fmt.Sprintf(" %-38s%s %s\n", "Reporting Date:",
+		timenet_data.MonthlyData[whatMonth].Month,
+		timenet_data.Year))
+
+	result.WriteString(fmt.Sprintf(" %-38s%s of %s\n",
+		"Timenet Monthly Worked Hours:",
+		timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth,
+		timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
+
+	result.WriteString(fmt.Sprintf(" %-38s%s\n",
+		"Kimai Yearly Worked Hours:",
+		kimai_data.Summary.WorkedTime))
+
+	result.WriteString(fmt.Sprintf(" %-38s%s\n\n",
+		"This Year Overtime:",
+		timenet_data.OvertimeInYear))
 
 	// lets plot here a table with daily data
 	result.WriteString(" Date          | Overtime | Timenet | Kimai   | Diff  \n")
