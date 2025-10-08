@@ -37,7 +37,7 @@ func readLatestJSON[T any](prefix string) (*T, error) {
 		return infoI.ModTime().After(infoJ.ModTime())
 	})
 	latestFile := matches[0]
-	slog.Info("Loading latest JSON file: " + latestFile)
+	slog.Info("Loading latest JSON file", "filename", latestFile)
 	jsonData, err := os.ReadFile(latestFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %v", latestFile, err)
@@ -121,11 +121,7 @@ func BuildSummary(whatMonth int) string {
 		for _, kimaiDay := range kimai_data.MonthlyData {
 			if kimaiDay.Date == day.Date {
 
-				//slog.Info("Working on date: " + kimaiDay.Date + " and " + day.Date)
-
 				kimai_minutes, err := convertTimeStringToMinutes(kimaiDay.WorkedTime)
-
-				//slog.Info(fmt.Sprintf("Worked Time: %d", kimai_minutes))
 
 				// there might be more than one entry for the same day, so we sum them up
 				if err == nil {
@@ -162,8 +158,6 @@ func BuildSummary(whatMonth int) string {
 		monthly_kimai += kimai_worked_time
 
 		// Calculate diff and accumulate to monthly_diff
-		// TODO. Currently flexitime hours are added too, need to exclude them
-		// for this we need to parse the
 		daily_diff := kimai_worked_time - timenet_worked_time
 		monthly_diff += daily_diff
 

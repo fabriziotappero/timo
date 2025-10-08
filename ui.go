@@ -74,7 +74,7 @@ func newModel() model {
 		inputs:         make([]textinput.Model, 3),
 		spinner:        s,
 		messageQueue:   make([]TimedMessage, 0),
-		maxMessages:    3, // Show up to 3 messages at once
+		maxMessages:    3,
 		pendingFetches: make(map[string]bool),
 	}
 

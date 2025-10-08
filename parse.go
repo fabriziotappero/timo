@@ -158,7 +158,7 @@ func timenetParse(htmlContent *string) error {
 		return fmt.Errorf("failed to save JSON: %v", err)
 	}
 
-	slog.Info("Timenet data saved to " + filename)
+	slog.Info("Timenet data saved", "filename", filename)
 	return nil
 }
 
@@ -314,7 +314,7 @@ func kimaiParse(htmlContent *string) error {
 		return fmt.Errorf("failed to save JSON: %v", err)
 	}
 
-	slog.Info("Kimai data saved to " + filename)
+	slog.Info("Kimai data saved", "filename", filename)
 	return nil
 }
 
