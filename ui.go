@@ -128,6 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "x":
+			m.statusMessage = ""
 			// Only handle logout if we're logged in (not typing in inputs)
 			if m.loginSubmitted {
 				m.loginSubmitted = false
@@ -155,6 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Handle back from about screen
 			if m.showAbout {
 				m.showAbout = false
+				m.statusMessage = ""
 				return m, nil
 			}
 
@@ -162,11 +164,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.loginSubmitted && !m.showAbout {
 				m.monthIndex = 0 // Reset to last month
 				m.isLoading = true
-				m.statusMessage = "Loading last month..."
+				m.statusMessage = "Loading last fetched data..."
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
-						time.Sleep(200 * time.Millisecond)
+						time.Sleep(2000 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
@@ -184,11 +186,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.monthIndex++
 				}
 				m.isLoading = true
-				m.statusMessage = fmt.Sprintf("Loading month %d back...", m.monthIndex)
+				m.statusMessage = fmt.Sprintf("Moving to %d months ago...", m.monthIndex)
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
-						time.Sleep(200 * time.Millisecond)
+						time.Sleep(400 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
@@ -200,11 +202,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.monthIndex--
 				}
 				m.isLoading = true
-				m.statusMessage = fmt.Sprintf("Loading month %d back...", m.monthIndex)
+				m.statusMessage = fmt.Sprintf("Moving to %d months ago...", m.monthIndex)
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
-						time.Sleep(200 * time.Millisecond)
+						time.Sleep(400 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
@@ -337,10 +339,10 @@ func (m model) View() string {
 		if m.mainContent != "" {
 
 			// Show UI main content output
-			b.WriteString(m.mainContent + "\n")
+			b.WriteString(m.mainContent + "")
 		} else {
 			// we should not use the main content area for status messages
-			b.WriteString("\nReady! Try 'f' to fetch stuff.\n\n")
+			b.WriteString("\nReady! Try 'f' to fetch stuff.\n")
 		}
 
 		// Show status message with spinner if loading
@@ -348,6 +350,8 @@ func (m model) View() string {
 			b.WriteString(fmt.Sprintf("%s %s\n", m.spinner.View(), statusMessageStyle.Render(m.statusMessage)))
 		} else if m.statusMessage != "" {
 			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
+		} else if m.statusMessage == "" {
+			b.WriteString("\n") // leaves a blank line when there is no status message
 		}
 
 		b.WriteString(helpStyle.Render("f fetch • l load • ← → prev/next • c clear • x logout • a about"))
