@@ -31,6 +31,14 @@ type fetchMsg struct {
 	message string
 }
 
+type TimedMessage struct {
+	text      string
+	timestamp time.Time
+	duration  time.Duration
+}
+
+type clearExpiredMsg struct{}
+
 type model struct {
 	focusIndex     int
 	inputs         []textinput.Model
@@ -39,8 +47,9 @@ type model struct {
 	showAbout      bool
 
 	// main UI areas
-	mainContent   string // holds the main content for data coming from JSON files
-	statusMessage string // holds status messages like "fetching data..."
+	mainContent  string         // holds the main content for data coming from JSON files
+	messageQueue []TimedMessage // queue of timed messages
+	maxMessages  int            // maximum number of messages to show
 
 	timenetPassword string
 	kimaiID         string
@@ -57,8 +66,10 @@ func newModel() model {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	m := model{
-		inputs:  make([]textinput.Model, 3),
-		spinner: s,
+		inputs:       make([]textinput.Model, 3),
+		spinner:      s,
+		messageQueue: make([]TimedMessage, 0),
+		maxMessages:  3, // Show up to 3 messages at once
 	}
 
 	var t textinput.Model
@@ -95,28 +106,79 @@ func (m model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+// Helper methods for message queue
+func (m *model) addMessage(text string, duration time.Duration) tea.Cmd {
+	msg := TimedMessage{
+		text:      text,
+		timestamp: time.Now(),
+		duration:  duration,
+	}
+
+	m.messageQueue = append(m.messageQueue, msg)
+
+	// Keep only maxMessages
+	if len(m.messageQueue) > m.maxMessages {
+		m.messageQueue = m.messageQueue[1:]
+	}
+
+	// Return a command to clear this message after its duration
+	return tea.Tick(duration, func(t time.Time) tea.Msg {
+		return clearExpiredMsg{}
+	})
+}
+
+func (m *model) clearExpiredMessages() {
+	now := time.Now()
+	var active []TimedMessage
+
+	for _, msg := range m.messageQueue {
+		if now.Sub(msg.timestamp) < msg.duration {
+			active = append(active, msg)
+		}
+	}
+
+	m.messageQueue = active
+}
+
+func (m *model) getCurrentMessage() string {
+	if m.isLoading && len(m.messageQueue) > 0 {
+		return m.messageQueue[len(m.messageQueue)-1].text
+	}
+	if len(m.messageQueue) > 0 {
+		return m.messageQueue[len(m.messageQueue)-1].text
+	}
+	return ""
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case mainContentMsg:
 		m.mainContent = msg.output
 		m.isLoading = false
-		m.statusMessage = ""
 		return m, nil
+
 	case fetchMsg:
 		slog.Info("Fetch completed", "success", msg.success, "message", msg.message)
 		m.isLoading = false
-		m.statusMessage = msg.message
 
-		// Auto-load main UI content after successful fetch
+		var cmd tea.Cmd
 		if msg.success {
-			return m, func() tea.Msg {
+			cmd = m.addMessage(msg.message, 3*time.Second)
+			return m, tea.Batch(cmd, func() tea.Msg {
 				time.Sleep(1 * time.Second) // Let the success message show briefly
 				summary := BuildSummary(m.monthIndex)
 				return mainContentMsg{output: summary}
-			}
+			})
+		} else {
+			cmd = m.addMessage(msg.message, 5*time.Second) // Errors stay longer
 		}
 
+		return m, cmd
+
+	case clearExpiredMsg:
+		m.clearExpiredMessages()
 		return m, nil
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -128,11 +190,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "x":
-			m.statusMessage = ""
 			// Only handle logout if we're logged in (not typing in inputs)
 			if m.loginSubmitted {
 				m.loginSubmitted = false
 				m.focusIndex = 0
+				m.messageQueue = nil // Clear all messages
 				// Clear all input values
 				for i := range m.inputs {
 					m.inputs[i].SetValue("")
@@ -156,7 +218,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Handle back from about screen
 			if m.showAbout {
 				m.showAbout = false
-				m.statusMessage = ""
+				m.messageQueue = nil // Clear all messages
 				return m, nil
 			}
 
@@ -164,9 +226,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.loginSubmitted && !m.showAbout {
 				m.monthIndex = 0 // Reset to last month
 				m.isLoading = true
-				m.statusMessage = "Loading last fetched data..."
+				cmd := m.addMessage("Loading last fetched data...", 3*time.Second)
 				return m, tea.Batch(
 					m.spinner.Tick,
+					cmd,
 					func() tea.Msg {
 						time.Sleep(2000 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
@@ -186,9 +249,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.monthIndex++
 				}
 				m.isLoading = true
-				m.statusMessage = fmt.Sprintf("Moving to %d months ago...", m.monthIndex)
+				cmd := m.addMessage(fmt.Sprintf("Moving to %d months ago...", m.monthIndex), 2*time.Second)
 				return m, tea.Batch(
 					m.spinner.Tick,
+					cmd,
 					func() tea.Msg {
 						time.Sleep(400 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
@@ -202,9 +266,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.monthIndex--
 				}
 				m.isLoading = true
-				m.statusMessage = fmt.Sprintf("Moving to %d months ago...", m.monthIndex)
+				cmd := m.addMessage(fmt.Sprintf("Moving to %d months ago...", m.monthIndex), 2*time.Second)
 				return m, tea.Batch(
 					m.spinner.Tick,
+					cmd,
 					func() tea.Msg {
 						time.Sleep(400 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
@@ -216,18 +281,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f":
 			if m.loginSubmitted && !m.showAbout {
 				if m.timenetPassword == "" {
-					m.statusMessage = "Timenet password is blank, use valid password."
-					return m, nil
+					cmd := m.addMessage("Timenet password is blank, use valid password.", 5*time.Second)
+					return m, cmd
 				}
 				if m.kimaiID == "" || m.kimaiPassword == "" {
-					m.statusMessage = "Kimai credentials are blank, use valid credentials."
-					return m, nil
+					cmd := m.addMessage("Kimai credentials are blank, use valid credentials.", 5*time.Second)
+					return m, cmd
 				}
 				m.isLoading = true
-				m.statusMessage = "Fetching remote data..."
+				cmd := m.addMessage("Fetching remote data...", 10*time.Second)
 				slog.Info("Fetching remote data...")
 				return m, tea.Batch(
 					m.spinner.Tick,
+					cmd,
 					func() tea.Msg {
 						err := fetchTimenet(m.timenetPassword)
 						if err != nil {
@@ -346,11 +412,12 @@ func (m model) View() string {
 		}
 
 		// Show status message with spinner if loading
-		if m.isLoading && m.statusMessage != "" {
-			b.WriteString(fmt.Sprintf("%s %s\n", m.spinner.View(), statusMessageStyle.Render(m.statusMessage)))
-		} else if m.statusMessage != "" {
-			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(m.statusMessage)))
-		} else if m.statusMessage == "" {
+		currentMsg := m.getCurrentMessage()
+		if m.isLoading && currentMsg != "" {
+			b.WriteString(fmt.Sprintf("%s %s\n", m.spinner.View(), statusMessageStyle.Render(currentMsg)))
+		} else if currentMsg != "" {
+			b.WriteString(fmt.Sprintf("%s\n", statusMessageStyle.Render(currentMsg)))
+		} else {
 			b.WriteString("\n") // leaves a blank line when there is no status message
 		}
 
