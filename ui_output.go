@@ -208,8 +208,8 @@ func BuildAboutMessage() string {
 	}
 
 	result.WriteString(fmt.Sprintf("%s v%s\n\n", boldStyle.Render("TIMO"), version))
-	result.WriteString("A time tracking management tool build\n")
-	result.WriteString("in Golang with Bubble Tea ❤️\n\n")
+	result.WriteString("A time tracking management tool build in\n")
+	result.WriteString("Golang with the Bubble Tea ❤️ library.\n\n")
 	result.WriteString("checking...\n")
 
 	// get version from env variable
@@ -221,6 +221,8 @@ func BuildAboutMessage() string {
 	} else {
 		result.WriteString("👍 you are using the latest version.\n")
 	}
+
+	result.WriteString("\nDo you want to contribute? Open an issue on GitHub.\n")
 
 	result.WriteString(helpStyle.Render("\nb back • esc leave"))
 
