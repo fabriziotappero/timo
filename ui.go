@@ -226,12 +226,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.loginSubmitted && !m.showAbout {
 				m.monthIndex = 0 // Reset to last month
 				m.isLoading = true
-				cmd := m.addMessage("Loading last fetched data...", 3*time.Second)
+				cmd := m.addMessage("Loaded last fetched data", 3*time.Second)
 				return m, tea.Batch(
 					m.spinner.Tick,
 					cmd,
 					func() tea.Msg {
-						time.Sleep(2000 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
@@ -249,12 +248,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.monthIndex++
 				}
 				m.isLoading = true
-				cmd := m.addMessage(fmt.Sprintf("Moving to %d months ago...", m.monthIndex), 2*time.Second)
+				cmd := m.addMessage(fmt.Sprintf("Moved to %d months ago", m.monthIndex), 2*time.Second)
 				return m, tea.Batch(
 					m.spinner.Tick,
 					cmd,
 					func() tea.Msg {
-						time.Sleep(400 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
@@ -266,12 +264,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.monthIndex--
 				}
 				m.isLoading = true
-				cmd := m.addMessage(fmt.Sprintf("Moving to %d months ago...", m.monthIndex), 2*time.Second)
+				cmd := m.addMessage(fmt.Sprintf("Moved to %d months ago", m.monthIndex), 2*time.Second)
 				return m, tea.Batch(
 					m.spinner.Tick,
 					cmd,
 					func() tea.Msg {
-						time.Sleep(400 * time.Millisecond) // fake some effort so that user can read the status message
 						summary := BuildSummary(m.monthIndex)
 						return mainContentMsg{output: summary}
 					},
@@ -281,11 +278,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f":
 			if m.loginSubmitted && !m.showAbout {
 				if m.timenetPassword == "" {
-					cmd := m.addMessage("Timenet password is blank, use valid password.", 5*time.Second)
+					cmd := m.addMessage("Timenet password is blank, use valid password", 5*time.Second)
 					return m, cmd
 				}
 				if m.kimaiID == "" || m.kimaiPassword == "" {
-					cmd := m.addMessage("Kimai credentials are blank, use valid credentials.", 5*time.Second)
+					cmd := m.addMessage("Kimai credentials are blank, use valid credentials", 5*time.Second)
 					return m, cmd
 				}
 				m.isLoading = true
