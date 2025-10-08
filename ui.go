@@ -27,8 +27,10 @@ type mainContentMsg struct {
 }
 
 type fetchMsg struct {
-	success bool
-	message string
+	success  bool
+	message  string
+	duration time.Duration
+	source   string // "timenet" or "kimai"
 }
 
 type TimedMessage struct {
@@ -51,6 +53,9 @@ type model struct {
 	messageQueue []TimedMessage // queue of timed messages
 	maxMessages  int            // maximum number of messages to show
 
+	// fetch tracking
+	pendingFetches map[string]bool // tracks which fetches are still running
+
 	timenetPassword string
 	kimaiID         string
 	kimaiPassword   string
@@ -66,10 +71,11 @@ func newModel() model {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	m := model{
-		inputs:       make([]textinput.Model, 3),
-		spinner:      s,
-		messageQueue: make([]TimedMessage, 0),
-		maxMessages:  3, // Show up to 3 messages at once
+		inputs:         make([]textinput.Model, 3),
+		spinner:        s,
+		messageQueue:   make([]TimedMessage, 0),
+		maxMessages:    3, // Show up to 3 messages at once
+		pendingFetches: make(map[string]bool),
 	}
 
 	var t textinput.Model
@@ -154,25 +160,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case mainContentMsg:
 		m.mainContent = msg.output
-		m.isLoading = false
+		m.isLoading = false // the spinner is stopped when main content is updated
 		return m, nil
 
 	case fetchMsg:
-		slog.Info("Fetch completed", "success", msg.success, "message", msg.message)
-		m.isLoading = false
+		slog.Info("Fetch completed", "source", msg.source, "success", msg.success, "message", msg.message)
 
-		var cmd tea.Cmd
-		if msg.success {
-			cmd = m.addMessage(msg.message, 3*time.Second)
+		// Remove this fetch from pending
+		delete(m.pendingFetches, msg.source)
+
+		cmd := m.addMessage(msg.message, msg.duration)
+
+		// Only trigger summary build if ALL fetches are complete
+		if len(m.pendingFetches) == 0 {
+			// All fetches done - keep only the last message and load summary
+			if len(m.messageQueue) > 1 {
+				m.messageQueue = m.messageQueue[len(m.messageQueue)-1:]
+			}
 			return m, tea.Batch(cmd, func() tea.Msg {
-				time.Sleep(1 * time.Second) // Let the success message show briefly
 				summary := BuildSummary(m.monthIndex)
 				return mainContentMsg{output: summary}
 			})
-		} else {
-			cmd = m.addMessage(msg.message, 5*time.Second) // Errors stay longer
 		}
 
+		// Some fetches still pending - just show the message
 		return m, cmd
 
 	case clearExpiredMsg:
@@ -194,7 +205,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.loginSubmitted {
 				m.loginSubmitted = false
 				m.focusIndex = 0
-				m.messageQueue = nil // Clear all messages
+				m.messageQueue = nil                     // Clear all messages
+				m.pendingFetches = make(map[string]bool) // Clear pending fetches
+				m.isLoading = false
 				// Clear all input values
 				for i := range m.inputs {
 					m.inputs[i].SetValue("")
@@ -285,27 +298,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmd := m.addMessage("Kimai credentials are blank, use valid credentials", 5*time.Second)
 					return m, cmd
 				}
+
+				// Initialize fetch tracking
+				m.pendingFetches = map[string]bool{
+					"timenet": true,
+					"kimai":   true,
+				}
 				m.isLoading = true
-				cmd := m.addMessage("Fetching remote data...", 10*time.Second)
+
+				cmd := m.addMessage("Fetching remote data...", 60*time.Second)
 				slog.Info("Fetching remote data...")
+
 				return m, tea.Batch(
 					m.spinner.Tick,
 					cmd,
 					func() tea.Msg {
 						err := fetchTimenet(m.timenetPassword)
 						if err != nil {
-							return fetchMsg{success: false, message: "Timenet fetch failed: " + err.Error()}
+							return fetchMsg{success: false, message: "Timenet fetch failed: " + err.Error(), duration: 5 * time.Second, source: "timenet"}
 						}
-						time.Sleep(2 * time.Second) // Keep message visible
-						return fetchMsg{success: true, message: "Timenet fetch completed successfully"}
+						return fetchMsg{success: true, message: "Timenet fetch completed successfully", duration: 5 * time.Second, source: "timenet"}
 					},
 					func() tea.Msg {
 						err := fetchKimai(m.kimaiID, m.kimaiPassword)
 						if err != nil {
-							return fetchMsg{success: false, message: "Kimai fetch failed: " + err.Error()}
+							return fetchMsg{success: false, message: "Kimai fetch failed: " + err.Error(), duration: 5 * time.Second, source: "kimai"}
 						}
-						time.Sleep(2 * time.Second)
-						return fetchMsg{success: true, message: "Kimai fetch completed successfully"}
+						return fetchMsg{success: true, message: "Kimai fetch completed successfully", duration: 5 * time.Second, source: "kimai"}
 					},
 				)
 			}
