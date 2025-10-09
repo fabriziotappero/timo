@@ -1,4 +1,3 @@
-// scrape.go
 package main
 
 import (
@@ -183,7 +182,7 @@ func newChromeContext(extraOpts ...chromedp.ExecAllocatorOption) (context.Contex
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	ctx, ctxCancel := chromedp.NewContext(allocCtx)
 	// Set timeout
-	ctx, timeoutCancel := context.WithTimeout(ctx, 35*time.Second)
+	ctx, timeoutCancel := context.WithTimeout(ctx, 28*time.Second)
 	// Compose all cancels into one
 	cancel := func() {
 		timeoutCancel()
@@ -249,7 +248,7 @@ func scrapeTimenet(password string) (string, error) {
 			return chromedp.SendKeys(`#gpi-input-0`, password+"\n", chromedp.ByQuery).Do(ctx)
 		}),
 
-		chromedp.Sleep(2*time.Second),
+		chromedp.Sleep(1*time.Second),
 
 		// go to checks page
 		chromedp.ActionFunc(func(ctx context.Context) error {
@@ -261,11 +260,11 @@ func scrapeTimenet(password string) (string, error) {
 				return err
 			}
 			// Add extra wait for Windows headless mode
-			chromedp.Sleep(2 * time.Second).Do(ctx)
+			chromedp.Sleep(1 * time.Second).Do(ctx)
 			slog.Info("Timenet: Clicking checks navigation link")
 			return chromedp.Click(`a.nav-link[href="/checks"]`, chromedp.ByQuery).Do(ctx)
 		}),
-		chromedp.Sleep(2*time.Second), // Give more time for navigation
+		chromedp.Sleep(1*time.Second), // Give more time for navigation
 
 		// Verify we're on the checks page by waiting for a checks-specific element
 		chromedp.ActionFunc(func(ctx context.Context) error {
@@ -294,7 +293,7 @@ func scrapeTimenet(password string) (string, error) {
 					return err
 				}
 
-				chromedp.Sleep(1 * time.Second).Do(ctx)
+				chromedp.Sleep(50 * time.Millisecond).Do(ctx)
 
 				// click back button to go to previous month
 				err = chromedp.Click(`div.container-mes-checks button:first-child`, chromedp.ByQuery).Do(ctx)
@@ -402,7 +401,7 @@ func scrapeKimai(id string, password string) (string, error) {
 
 		// wait for date picker elements to be visible/loaded
 		chromedp.WaitVisible(`#dates`, chromedp.ByQuery),
-		chromedp.Sleep(2*time.Second),
+		chromedp.Sleep(1*time.Second),
 
 		// store locally current view filter
 		chromedp.Text(`#ts_in`, &viewFilterStartDate, chromedp.ByQuery),

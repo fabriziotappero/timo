@@ -160,7 +160,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case mainContentMsg:
 		m.mainContent = msg.output
-		m.isLoading = false // the spinner is stopped when main content is updated
+		// Only stop loading if no pending fetches
+		if len(m.pendingFetches) == 0 {
+			m.isLoading = false
+		}
 		return m, nil
 
 	case fetchMsg:
