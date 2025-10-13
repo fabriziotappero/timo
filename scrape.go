@@ -370,8 +370,21 @@ func scrapeKimai(id string, password string) (string, error) {
 		chromedp.Click(`#loginButton`, chromedp.ByQuery),
 		chromedp.Sleep(1*time.Second),
 
-		// in Kimai preference set 920 entries per page
+		// in Kimai preference should be set to 920 entries per page
+		// Wait for floaterShow function to be available
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			for i := 0; i < 10; i++ { // Try up to 5s
+				var exists bool
+				err := chromedp.Evaluate(`typeof floaterShow === 'function'`, &exists).Do(ctx)
+				if err == nil && exists {
+					return nil
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+			return fmt.Errorf("floaterShow function not available")
+		}),
 		chromedp.Evaluate(`floaterShow("floaters.php","prefs",0,0,450);`, nil), // open preferences floating panel
+
 		chromedp.Sleep(1*time.Second),
 		chromedp.WaitVisible(`#floater`, chromedp.ByQuery),
 		chromedp.Sleep(1*time.Second),
