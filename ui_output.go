@@ -9,13 +9,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 var redStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-var boldStyle = lipgloss.NewStyle().Bold(true)
 var yellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
+var reverseStyle = lipgloss.NewStyle().Reverse(true)
+var italicStyle = lipgloss.NewStyle().Italic(true)
 
 // readLatestJSON finds and reads the most recent JSON file with the given prefix
 func readLatestJSON[T any](prefix string) (*T, error) {
@@ -109,11 +111,11 @@ func BuildSummary(whatMonth int) string {
 		case day.IsHoliday:
 			dayType = "🎉"
 		case day.IsWorkDay:
-			dayType = "🧑‍💼" //🔨🔧💼🧰
+			dayType = "🧪" //🧑‍💼🔨🔧💼🧰💰🧪🚧🪚
 		case day.IsVacation:
 			dayType = "🏝️"
 		default:
-			dayType = "🌙" //💃🌙😎
+			dayType = "💃" //💃🌙😎⛺🏡
 		}
 
 		// search for timenet_data.MonthlyData.Date inside kimai_data.MonthlyData.Date and
@@ -171,8 +173,13 @@ func BuildSummary(whatMonth int) string {
 		kimaiWorkedTime := strings.TrimPrefix(convertMinutesToTimeString(kimai_worked_time), "+")
 		diff := convertMinutesToTimeString(daily_diff)
 
+		currentDate := day.Date
+		if day.Date == time.Now().Format("2006/01/02") {
+			currentDate = reverseStyle.Render(day.Date)
+		}
+
 		result.WriteString(fmt.Sprintf(" %-10s %s | %-8s | %-7s | %-7s | %-7s %s\n",
-			day.Date, dayType, day.OvertimeInDay, day.WorkedTimeInDay, kimaiWorkedTime, diff, warning,
+			currentDate, dayType, day.OvertimeInDay, day.WorkedTimeInDay, kimaiWorkedTime, diff, warning,
 		))
 
 	}
@@ -185,7 +192,7 @@ func BuildSummary(whatMonth int) string {
 			convertMinutesToTimeString(monthly_overtime),
 			strings.TrimPrefix(convertMinutesToTimeString(monthly_timenet), "+"),
 			strings.TrimPrefix(convertMinutesToTimeString(monthly_kimai), "+"),
-			redStyle.Render(convertMinutesToTimeString(monthly_diff)+" (WTO)"),
+			redStyle.Render(convertMinutesToTimeString(monthly_diff)),
 		))
 
 	return result.String()
@@ -196,12 +203,12 @@ func BuildAboutMessage() string {
 	var result strings.Builder
 
 	localMajor, localMinor, localPatch, err := ReadLocalVersion()
-	var version string = ""
+	var version string = "0.0.0"
 	if err == nil {
 		version = fmt.Sprintf("%d.%d.%d", localMajor, localMinor, localPatch)
 	}
 
-	result.WriteString(fmt.Sprintf("%s v%s\n\n", boldStyle.Render("TIMO"), version))
+	result.WriteString(fmt.Sprintf("%s\n\n", italicStyle.Render("TIMO v"+version)))
 	result.WriteString("A time tracking management tool build in\n")
 	result.WriteString("Golang with the Bubble Tea ❤️ library.\n\n")
 	result.WriteString("checking...\n")
