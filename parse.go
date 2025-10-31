@@ -67,6 +67,9 @@ type TimenetDailyData struct {
 	IsWorkDay               bool   `json:"is_work_day"`
 	IsHoliday               bool   `json:"is_holiday"`
 	IsVacation              bool   `json:"is_vacation"`
+	IsMedicalLeave          bool   `json:"is_medical_leave"`
+	IsCalendarAdjustment    bool   `json:"is_calendar_adjustment"`
+	IsWeekend               bool   `json:"is_weekend"`
 }
 
 // timenetParse extracts data from Timenet HTML and saves to JSON file
@@ -123,15 +126,24 @@ func timenetParse(htmlContent *string) error {
 			dailyData.WorkedTimeInDay = strings.TrimSpace(content.Find(".total-day-check span").Text())
 			dailyData.OvertimeInDay = strings.TrimSpace(content.Find(".diff-day-check span").Text())
 
-			dailyData.IsWorkDay = dailyData.ExpectedWorkedTimeInDay != ""
-
 			dayTypeName := strings.TrimSpace(content.Find(".day-type-name").Text())
-			dailyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") || strings.Contains(dayTypeName, "Bank Holiday")
+
+			dailyData.IsWorkDay = dailyData.ExpectedWorkedTimeInDay != "" ||
+				strings.Contains(dayTypeName, "Laborable")
+
+			dailyData.IsHoliday = strings.Contains(dayTypeName, "Festivo") ||
+				strings.Contains(dayTypeName, "Bank Holiday")
 
 			dailyData.IsVacation = strings.Contains(dayTypeName, "Vacation") ||
-				strings.Contains(dayTypeName, "Vacaciones") ||
-				strings.Contains(dayTypeName, "Ausencia") ||
-				(dayTypeName != "" && dayTypeName != "Laborable" && dayTypeName != "non working day" && !dailyData.IsHoliday)
+				strings.Contains(dayTypeName, "Vacaciones")
+
+			dailyData.IsMedicalLeave = strings.Contains(dayTypeName, "baja con parte médico") ||
+				strings.Contains(dayTypeName, "Weekend while on IT leave") ||
+				strings.Contains(dayTypeName, "Seek time")
+
+			dailyData.IsCalendarAdjustment = strings.Contains(dayTypeName, "calendar adjustment")
+
+			dailyData.IsWeekend = strings.Contains(dayTypeName, "non working day") // Saturday or Sunday
 
 			// Only add if we have a valid date
 			if dailyData.Date != "" {

@@ -111,9 +111,15 @@ func BuildSummary(whatMonth int) string {
 		case day.IsHoliday:
 			dayType = "🎉"
 		case day.IsWorkDay:
-			dayType = "🧪" //🧑‍💼🔨🔧💼🧰💰🧪🚧🪚
+			dayType = "🚧" //🧑‍💼🔨🔧💼🧰💰🧪🚧🪚
 		case day.IsVacation:
-			dayType = "🏝️"
+			dayType = "🏖️" //🏖️ 🏝️
+		case day.IsMedicalLeave:
+			dayType = "🩺" // 🚑
+		case day.IsCalendarAdjustment:
+			dayType = "📅"
+		case day.IsWeekend:
+			dayType = "💤"
 		default:
 			dayType = "💃" //💃🌙😎⛺🏡
 		}
