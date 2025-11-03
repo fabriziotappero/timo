@@ -181,8 +181,10 @@ func newChromeContext(extraOpts ...chromedp.ExecAllocatorOption) (context.Contex
 	slog.Info("Using Chrome/Chromium executable:", "path", chromiumPath)
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	ctx, ctxCancel := chromedp.NewContext(allocCtx)
+
 	// Set timeout
-	ctx, timeoutCancel := context.WithTimeout(ctx, 28*time.Second)
+	ctx, timeoutCancel := context.WithTimeout(ctx, 35*time.Second)
+
 	// Compose all cancels into one
 	cancel := func() {
 		timeoutCancel()
