@@ -95,21 +95,23 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 			for i := 0; i < monthsDiff; i++ {
 				chromedp.WaitVisible(`.ui-datepicker-next`, chromedp.ByQuery).Do(ctx)
 				chromedp.Click(`.ui-datepicker-next`, chromedp.ByQuery).Do(ctx)
-				chromedp.Sleep(1 * time.Millisecond).Do(ctx)
-				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
+				chromedp.Sleep(250 * time.Millisecond).Do(ctx)
+				// Verify month changed by checking title
+				chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
 			}
 		} else if monthsDiff < 0 {
 			// Go backwards (prev)
 			for i := 0; i < -monthsDiff; i++ {
 				chromedp.WaitVisible(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
 				chromedp.Click(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
-				chromedp.Sleep(1 * time.Millisecond).Do(ctx)
-				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
+				chromedp.Sleep(250 * time.Millisecond).Do(ctx)
+				// Verify month changed by checking title
+				chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
 			}
 		} else {
 			slog.Info("Kimai: No month navigation is needed")
 		}
-		chromedp.Sleep(1 * time.Second).Do(ctx)
+		chromedp.Sleep(400 * time.Millisecond).Do(ctx)
 
 		// Extract day from dateTarget and click on it using the HTML select
 		slog.Info("Kimai: Trying to set DAY in date picker", "date", dateTarget)
@@ -117,10 +119,11 @@ func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Actio
 		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
 		var targetDay, targetMonth, targetYear int
 		fmt.Sscanf(dateTarget, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
-		daySelector := fmt.Sprintf(`//a[text()="%d"]`, targetDay)
+		// Select day only from non-disabled cells (avoid other-month or grayed-out days)
+		daySelector := fmt.Sprintf(`//td[not(contains(@class,'ui-datepicker-other-month'))]/a[text()="%d"]`, targetDay)
 		slog.Info("Kimai: Trying to click on day in date picker", "day", targetDay)
 		chromedp.Click(daySelector, chromedp.BySearch).Do(ctx)
-		chromedp.Sleep(2 * time.Second).Do(ctx)
+		chromedp.Sleep(800 * time.Millisecond).Do(ctx)
 
 		// Read back the field value to confirm it changed to target date (critical for #ts_out)
 		var appliedDate string
