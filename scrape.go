@@ -13,116 +13,48 @@ import (
 
 var chromiumPath string = ""
 
-// calculateMonthsDifference calculates how many months to navigate from current to target date
-// currentDate and targetDate should be in format "dd/mm/yyyy"
-// Returns positive number for going forwards, negative for going backwards
-func calculateMonthsDifference(currentDate, targetDate string) int {
-	// Check for empty dates
-	if currentDate == "" || targetDate == "" {
-		slog.Warn("Empty date provided", "current", currentDate, "target", targetDate)
-		return 0
-	}
-
-	// Parse current date (e.g., "01/09/2025")
-	var currentDay, currentMonth, currentYear int
-	fmt.Sscanf(currentDate, "%d/%d/%d", &currentDay, &currentMonth, &currentYear)
-
-	// Parse target date (e.g., "01/01/2025")
-	var targetDay, targetMonth, targetYear int
-	fmt.Sscanf(targetDate, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
-
-	// Calculate months difference (target - current)
-	// Positive = go forward, Negative = go backward
-	monthsDiff := (targetYear-currentYear)*12 + (targetMonth - currentMonth)
-
-	slog.Info("Date calculation",
-		"current", currentDate, "target", targetDate,
-		"currentMonth", currentMonth, "targetMonth", targetMonth,
-		"monthsDifference", monthsDiff)
-
-	return monthsDiff
-}
-
 // set the date in the Kimai date picker for both from and to date
-func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Action {
+// Deprecated date picker function retained for reference (unused after direct field setting implementation).
+// func setDatePickerFilter(dateTarget string, fieldSelector string) chromedp.Action { return chromedp.ActionFunc(func(ctx context.Context) error { return nil }) }
+
+// setHiddenField sets the Kimai date filter fields (#ts_in/#ts_out) directly without opening the datepicker.
+// It dispatches input and change events to mimic user interaction and retries until the value sticks or gives up.
+func setHiddenField(dateTarget string, fieldSelector string) chromedp.Action {
 	return chromedp.ActionFunc(func(ctx context.Context) error {
-		// Validate fieldSelector
 		if fieldSelector != "#ts_in" && fieldSelector != "#ts_out" {
 			return fmt.Errorf("invalid fieldSelector '%s': must be '#ts_in' or '#ts_out'", fieldSelector)
 		}
 
-		// First, read the current date from the specified field
-		var currentDateText string
-		chromedp.Text(fieldSelector, &currentDateText, chromedp.ByQuery).Do(ctx)
+		slog.Info("Kimai: Setting field directly", "field", fieldSelector, "date", dateTarget)
 
-		slog.Info("Kimai: Current date picker shows", "date", currentDateText, "field", fieldSelector)
-		slog.Info("Kimai: We want to set", "date", dateTarget, "field", fieldSelector)
-
-		// Check if we're already at the target date
-		if currentDateText == dateTarget {
-			slog.Info("Kimai: Already at target date, no navigation needed")
-			return nil
-		}
-
-		// Calculate how many months to navigate
-		monthsDiff := calculateMonthsDifference(currentDateText, dateTarget)
-
-		// Open the date picker by evaluating JS on the hidden input
-		chromedp.Sleep(2 * time.Second).Do(ctx)
-		chromedp.WaitVisible(fieldSelector, chromedp.ByQuery).Do(ctx)
-		slog.Info("Kimai: Triggering datepicker via JS on hidden input")
-		var inputSelector string
-		if fieldSelector == "#ts_in" {
-			inputSelector = "#pick_in"
-		} else if fieldSelector == "#ts_out" {
-			inputSelector = "#pick_out"
-		} else {
-			return fmt.Errorf("invalid fieldSelector '%s': must be '#ts_in' or '#ts_out'", fieldSelector)
-		}
-		errEval := chromedp.EvaluateAsDevTools(fmt.Sprintf("$('#%s').datepicker('show')", inputSelector[1:]), nil).Do(ctx)
-		if errEval != nil {
-			slog.Error("failed to trigger datepicker via JS", "error", errEval)
-		}
-
-		// let's wait a bit for the date picker to be visible
-		chromedp.Sleep(2 * time.Second).Do(ctx)
-		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
-
-		// Click prev/next based on calculated difference
-		slog.Info("Kimai: Trying to set MONTH in date picker moving of", "monthsDiff", monthsDiff)
-		if monthsDiff > 0 {
-			// Go forwards (next)
-			for i := 0; i < monthsDiff; i++ {
-				chromedp.WaitVisible(`.ui-datepicker-next`, chromedp.ByQuery).Do(ctx)
-				chromedp.Click(`.ui-datepicker-next`, chromedp.ByQuery).Do(ctx)
-				chromedp.Sleep(1 * time.Millisecond).Do(ctx)
-				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
+		// Retry a few times in case the page overwrites our change (race with JS widgets)
+		for attempt := 1; attempt <= 5; attempt++ {
+			var result string
+			js := fmt.Sprintf(`(function(){
+				var el = document.querySelector('%s');
+				if(!el){return 'missing';}
+				el.value = '%s';
+				el.dispatchEvent(new Event('input', { bubbles: true }));
+				el.dispatchEvent(new Event('change', { bubbles: true }));
+				return el.value;
+			})();`, fieldSelector, dateTarget)
+			err := chromedp.EvaluateAsDevTools(js, &result).Do(ctx)
+			if err != nil {
+				slog.Error("Kimai: JS evaluate failed setting field", "field", fieldSelector, "error", err, "attempt", attempt)
 			}
-		} else if monthsDiff < 0 {
-			// Go backwards (prev)
-			for i := 0; i < -monthsDiff; i++ {
-				chromedp.WaitVisible(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
-				chromedp.Click(`.ui-datepicker-prev`, chromedp.ByQuery).Do(ctx)
-				chromedp.Sleep(1 * time.Millisecond).Do(ctx)
-				//chromedp.WaitVisible(`.ui-datepicker-title`, chromedp.ByQuery).Do(ctx)
+
+			// Read back value to verify
+			var readBack string
+			chromedp.Value(fieldSelector, &readBack, chromedp.ByQuery).Do(ctx)
+			slog.Info("Kimai: Field value after set attempt", "field", fieldSelector, "value", readBack, "attempt", attempt)
+
+			if readBack == dateTarget {
+				slog.Info("Kimai: Field set successfully", "field", fieldSelector, "attempt", attempt)
+				return nil
 			}
-		} else {
-			slog.Info("Kimai: No month navigation is needed")
+			chromedp.Sleep(200 * time.Millisecond).Do(ctx)
 		}
-		chromedp.Sleep(1 * time.Second).Do(ctx)
-
-		// Extract day from dateTarget and click on it using the HTML select
-		slog.Info("Kimai: Trying to set DAY in date picker", "date", dateTarget)
-
-		chromedp.WaitVisible(`.ui-datepicker-calendar`, chromedp.ByQuery).Do(ctx)
-		var targetDay, targetMonth, targetYear int
-		fmt.Sscanf(dateTarget, "%d/%d/%d", &targetDay, &targetMonth, &targetYear)
-		daySelector := fmt.Sprintf(`//a[text()="%d"]`, targetDay)
-		slog.Info("Kimai: Trying to click on day in date picker", "day", targetDay)
-		chromedp.Click(daySelector, chromedp.BySearch).Do(ctx)
-		chromedp.Sleep(2 * time.Second).Do(ctx)
-
-		return nil
+		return fmt.Errorf("kimai: failed to set field %s to %s after retries", fieldSelector, dateTarget)
 	})
 }
 
@@ -409,10 +341,10 @@ func scrapeKimai(id string, password string) (string, error) {
 		chromedp.Text(`#ts_out`, &viewFilterOriginalEndDate, chromedp.ByQuery),
 
 		// set the from view filter to January 1st of current year
-		setDatePickerFilter(januaryFirst, "#ts_in"),
+		setHiddenField(januaryFirst, "#ts_in"),
 
 		// set the to view filter to last day of current month
-		setDatePickerFilter(lastDayOfMonthStr, "#ts_out"),
+		setHiddenField(lastDayOfMonthStr, "#ts_out"),
 
 		// wait for date picker elements to be visible/loaded
 		chromedp.WaitVisible(`#dates`, chromedp.ByQuery),
@@ -434,9 +366,9 @@ func scrapeKimai(id string, password string) (string, error) {
 	// restore original date picker view filter
 	err1 := chromedp.Run(ctx,
 		chromedp.Sleep(1*time.Second),
-		setDatePickerFilter(viewFilterOriginalStartDate, "#ts_in"),
-		chromedp.Sleep(1*time.Second),
-		setDatePickerFilter(viewFilterOriginalEndDate, "#ts_out"),
+		setHiddenField(viewFilterOriginalStartDate, "#ts_in"),
+		chromedp.Sleep(500*time.Millisecond),
+		setHiddenField(viewFilterOriginalEndDate, "#ts_out"),
 	)
 	slog.Info("Kimai: Restored original view filter", "start", viewFilterOriginalStartDate, "end", viewFilterOriginalEndDate)
 
