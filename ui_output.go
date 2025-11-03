@@ -235,3 +235,34 @@ func BuildAboutMessage() string {
 
 	return result.String()
 }
+
+func BuildSplashScreen() string {
+	var result strings.Builder
+
+	result.WriteString("\n\n")
+	result.WriteString("            ████████╗██╗███╗   ███╗ ██████╗ \n")
+	result.WriteString("            ╚══██╔══╝██║████╗ ████║██╔═══██╗\n")
+	result.WriteString("               ██║   ██║██╔████╔██║██║   ██║\n")
+	result.WriteString("               ██║   ██║██║╚██╔╝██║██║   ██║\n")
+	result.WriteString("               ██║   ██║██║ ╚═╝ ██║╚██████╔╝\n")
+	result.WriteString("               ╚═╝   ╚═╝╚═╝     ╚═╝ ╚═════╝ \n")
+	result.WriteString("\n")
+	result.WriteString("                 Time Metrics Dashboard\n")
+	result.WriteString("              📊 Kimai 📈 Timenet 🕐 Sync\n")
+	result.WriteString("\n")
+	result.WriteString("    Start by fetching remote data with the 'f' command.\n")
+	result.WriteString("    Use the arrow keys to navigate past months or type\n")
+	result.WriteString("    'a' to check the about menu for new versions.\n\n")
+
+	// get version from env variable
+	res, err := NewVersionAvailable()
+	if err != nil {
+		result.WriteString("    Error checking for new version.\n")
+	} else if res {
+		result.WriteString("    🚀 new version available at: https://github.com/fabriziotappero/timo/releases\n")
+	} else {
+		result.WriteString("    👍 you are using the latest version.\n")
+	}
+
+	return result.String()
+}

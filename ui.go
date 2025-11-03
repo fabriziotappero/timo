@@ -427,7 +427,7 @@ func (m model) View() string {
 			b.WriteString(m.mainContent + "")
 		} else {
 			// we should not use the main content area for status messages
-			b.WriteString("\nReady! Try 'f' to fetch stuff.\n")
+			b.WriteString(BuildSplashScreen())
 		}
 
 		// Show status message with spinner if loading
