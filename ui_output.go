@@ -110,8 +110,6 @@ func BuildSummary(whatMonth int) string {
 		switch {
 		case day.IsHoliday:
 			dayType = "🎉"
-		case day.IsWorkDay:
-			dayType = "🚧" //🧑‍💼🔨🔧💼🧰💰🧪🚧🪚
 		case day.IsVacation:
 			dayType = "🏖️" //🏖️ 🏝️
 		case day.IsMedicalLeave:
@@ -120,8 +118,10 @@ func BuildSummary(whatMonth int) string {
 			dayType = "📅"
 		case day.IsWeekend:
 			dayType = "💤"
+		case day.IsWorkDay:
+			dayType = "🚧" //🧑‍💼🔨🔧💼🧰💰🧪🚧🪚
 		default:
-			dayType = "💃" //💃🌙😎⛺🏡
+			dayType = "💩" //💃🌙😎⛺🏡
 		}
 
 		// search for timenet_data.MonthlyData.Date inside kimai_data.MonthlyData.Date and
