@@ -85,10 +85,6 @@ func BuildSummary(whatMonth int) string {
 		timenet_data.MonthlyData[whatMonth].WorkedTimeInMonth,
 		timenet_data.MonthlyData[whatMonth].ExpectedWorkedTimeInMonth))
 
-	result.WriteString(fmt.Sprintf(" %-38s%s\n",
-		"Kimai Yearly Worked Hours:",
-		kimai_data.Summary.WorkedTime))
-
 	result.WriteString(fmt.Sprintf(" %-38s%s\n\n",
 		"This Year Overtime:",
 		timenet_data.OvertimeInYear))
@@ -257,11 +253,11 @@ func BuildSplashScreen() string {
 	// get version from env variable
 	res, err := NewVersionAvailable()
 	if err != nil {
-		result.WriteString("    Error checking for new version.\n")
+		result.WriteString("    Error checking for new version.\n\n")
 	} else if res {
-		result.WriteString("    🚀 new version available at: https://github.com/fabriziotappero/timo/releases\n")
+		result.WriteString("    🚀 new version available at: https://github.com/fabriziotappero/timo/releases\n\n")
 	} else {
-		result.WriteString("    👍 you are using the latest version.\n")
+		result.WriteString("    👍 you are using the latest version.\n\n")
 	}
 
 	return result.String()

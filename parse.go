@@ -26,7 +26,7 @@ type KimaiSummary struct {
 	ReportingDateFrom string `json:"reporting_date_from"`
 	ReportingDateTo   string `json:"reporting_date_to"`
 	LoggedinUser      string `json:"loggedin_user"`
-	WorkedTime        string `json:"worked_time"`
+	LoggedTime        string `json:"logged_time"`
 }
 
 type KimaiMonthlyData struct {
@@ -268,7 +268,7 @@ func kimaiParse(htmlContent *string) error {
 	// TODO these dates are not the right format FIXIT
 	data.Summary.ReportingDateFrom = doc.Find("#pick_in").AttrOr("value", "")
 	data.Summary.ReportingDateTo = doc.Find("#pick_out").AttrOr("value", "")
-	data.Summary.WorkedTime = formatTimeFromHMS(strings.TrimSpace(doc.Find("#display_total").Text()))
+	data.Summary.LoggedTime = formatTimeFromHMS(strings.TrimSpace(doc.Find("#display_total").Text()))
 
 	// Extract monthly data from timesheet entries
 	monthlyRows := doc.Find("#timeSheetTable table tbody tr")
