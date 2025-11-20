@@ -240,11 +240,10 @@ func BuildSplashScreen() string {
 	result.WriteString("                 Time Metrics Dashboard\n")
 	result.WriteString("              📊 Kimai 📈 Timenet 🕐 Sync\n")
 	result.WriteString("\n")
-	result.WriteString("    Start by fetching remote data with the 'f' command.\n")
-	result.WriteString("    Use the arrow keys to navigate past months or type\n")
-	result.WriteString("    'a' to check the about menu for new versions.\n\n")
+	result.WriteString("    Start by fetching remote data with the 'f' command,\n")
+	result.WriteString("    and use the arrow keys to navigate to past months.\n\n")
 
-	// get version from env variable
+	// get version from env variable and check against github remote
 	res, err := NewVersionAvailable()
 	if err != nil {
 		result.WriteString("    Error checking for new version.\n\n")
